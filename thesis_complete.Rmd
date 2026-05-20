@@ -903,9 +903,11 @@ The instrument is constructed in Python (`build_instrument.py`) and loaded by `d
 1. From CBS InternationalStudents data (7,920 rows, field $\times$ herkomst $\times$ year): compute baseline shares $\omega_{j,f}$ using pre-2020 years
 2. From CBS EthnicalMakeup (100 nationalities, study permits): compute country shares within each herkomst group
 3. From IND visa data: extract not-issued rates for uniform Schengen visas by country and year
-4. Map IND country names to CBS herkomst groups via a manually constructed crosswalk
+4. Map IND country names to CBS herkomst groups via a manually constructed crosswalk (132 of 171 countries matched, 77.2%)
 5. Compute herkomst-group-level visa acceptance rates as permit-share-weighted averages
 6. Construct $Z_{f,t} = \sum_j \omega_{j,f} \times \text{VisaAcceptanceRate}_{j,t}$
+
+**ISCED-F to DUO field crosswalk design:** Two non-trivial mapping decisions warrant documentation. ISCED-F field 04 ("Recht, administratie, handel en zakelijke dienstverlening") covers both law and business/economics, which are separate fields in DUO. The instrument value for ISCED-F 04 is duplicated so that both `recht` and `economie` receive the same value—the identifying assumption is that the herkomst composition of international students in law and business programs is similar at the ISCED-F level of aggregation. ISCED-F field 06 ("Informatica") is mapped to `techniek` rather than `natuur`, reflecting that computer science programs in Dutch universities are predominantly housed in engineering and technical faculties. The "Onderwijsrichting onbekend" (unknown field) category is excluded because its flat 50/50 herkomst split is unrepresentative of any actual field.
 
 ## A.3 2SLS Estimation with fixest
 
