@@ -1,0 +1,10 @@
+# Auto-generated .gitignore
+data_tidy/
+thesis_files/
+*.html
+__pycache__/
+.Rhistory
+.RData
+.Rproj.user/
+*.pyc
+.gruntworker-context.md
