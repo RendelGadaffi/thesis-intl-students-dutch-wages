@@ -1,90 +1,75 @@
 # Thesis: International Student Presence and Dutch Graduate Labor Market Outcomes
-## Redon Ismailaga (9770879) — Utrecht University School of Economics
+
+**Redon Ismailaga (9770879)** — Utrecht University School of Economics
+
+Field-level shift-share instrumental variables analysis: does studying in internationalized programs affect Dutch graduates' wages? Instruments international student intensity with visa acceptance rates from IND consular data.
 
 ---
 
-## File Overview
+## Quick Start (Positron/RStudio)
 
-| File | Description |
-|------|-------------|
-| `thesis.Rmd` | Complete thesis document (R Markdown). Renders to PDF/HTML with embedded code, tables, and figures. |
-| `data_preparation.R` | Data pipeline: reads raw data, tidies in memory, writes pre-processed CSVs to `data_tidy/`. |
-| `references.bib` | BibTeX bibliography with all citations (shift-share instruments, international students, stay rates). |
-| `data_tidy/` | Output directory for pre-processed datasets (created by `data_preparation.R`). |
+1. Open `thesis_complete.Rmd` in Positron
+2. Click **Knit** (or `Ctrl+Shift+K`)
 
----
+That's it. The thesis auto-detects your data and runs everything. If processed data is missing, it sources `data_preparation.R` automatically.
 
-## How to Run
-
-### Step 1: Prepare Data
-
-In Positron or RStudio, set your working directory to this folder and run:
+## Manual Data Preparation (optional)
 
 ```r
 source("data_preparation.R")
-prepare_all_data("C:/Users/redon/Desktop/Thesis work/DATA", "data_tidy")
+prepare_all_data()
 ```
 
-This reads raw data from your thesis DATA folder and writes tidied CSVs to `data_tidy/`.
+This reads raw data from your thesis folder and writes processed CSVs to `data_tidy/`.
 
-### Step 2: Render Thesis
+## Instrument Construction (optional)
 
-```r
-rmarkdown::render("thesis.Rmd", output_format = "pdf_document")
+The instrument is pre-built in `instrument_values.csv`. To rebuild:
+
+```bash
+python build_instrument.py
 ```
 
-Or click "Knit" in RStudio/Positron.
+This reads CBS InternationalStudents, EthnicalMakeup, and IND Excel files to compute Z_{f,t} = Σ ω_{j,f} × VisaRate_{j,t}.
+
+## Push to GitHub
+
+Double-click `push_to_github.bat` — or manually:
+
+```bash
+git remote add origin https://github.com/YOUR_USERNAME/thesis-intl-students-dutch-wages.git
+git push -u origin master
+```
 
 ---
 
-## Data Sources
+## File Map
 
-| Source | Raw Location | Tidied Output |
-|--------|-------------|---------------|
-| LISS Work & Schooling | `DATA/LISS Work and Schooling/Extracted/` | `data_tidy/liss_work_tidy.csv` |
-| LISS Income | `DATA/LISS Economic Situation, Income/Extracted/` | `data_tidy/liss_income_tidy.csv` |
-| DUO Graduates | `DATA/DUO Graduates by Gender, Institution, Field of Study/` | `data_tidy/duo_graduates_tidy.csv` |
-| IND Visa Acceptance | `DATA/IND Short-Term Schengen Visa Acceptance Rates/` | `data_tidy/ind_visa_consulates_tidy.csv` |
-| CBS Nationality Shares | Nuffic/CBS | `data_tidy/cbs_85124NED_2024_top15.csv` |
+| File | Purpose |
+|------|---------|
+| `thesis_complete.Rmd` | **Main thesis** — 937 lines, all code executable |
+| `data_preparation.R` | Data pipeline (LISS + DUO WO/HBO + IND + CBS → tidy CSVs) |
+| `build_instrument.py` | IV construction from raw data |
+| `instrument_values.csv` | 55 field×year instrument values (11 fields × 5 years) |
+| `cbs_field_shares.csv` | ω_{j,f} matrix — baseline herkomst shares by field |
+| `herkomst_visa_rates.csv` | Group-level visa acceptance rates (6 groups × 5 years) |
+| `country_crosswalk.csv` | IND→CBS→herkomst group mapping (171 countries) |
+| `references.bib` | BibTeX citations |
+| `apa.csl` | APA 7 citation style |
 
----
+## Methodology
 
-## Methodology Summary
-
-- **DV:** Log personal gross monthly income (LISS panel, 2020-2024)
-- **Endogenous:** Field-level international student intensity (DUO program classification)
-- **Instrument:** Shift-share (Bartik) using IND visa acceptance rates as exogenous shift
-- **Estimation:** 2SLS with field and year fixed effects
+- **DV:** Log personal gross annual income (LISS panel, 2020–2024)
+- **Endogenous:** Field-level international student intensity (DUO program language classification)
+- **Instrument:** Z_{f,t} = Σ_j ω_{j,f} × VisaAcceptanceRate_{j,t}
+  - ω_{j,f}: Predetermined (2011–2019) herkomst shares across 11 ISCED-F fields (CBS)
+  - VisaAcceptanceRate_{j,t}: 1 − not_issued_rate, permit-share-weighted (IND + CBS EthnicalMakeup)
+- **Estimation:** 2SLS with field + year FE, clustered SEs at field level
+- **Diagnostics:** Kleibergen-Paap F, Stock-Yogo, Anderson-Rubin, Wu-Hausman
 - **Heterogeneity:** STEM vs. non-STEM fields
 
-### Instrument Construction
+## ISCED-F → DUO Crosswalk Design
 
-```
-Z_{f,t} = Σ_j ω_{j,t-1} × (1 - VisaRejectionRate_{j,t})
-```
-
-where ω_{j,t-1} is the lagged share of international students from country j, and VisaRejectionRate is from IND consular data.
-
-### Identification
-
-Visa acceptance rates are determined by Dutch consular policy and diplomatic relations — plausibly exogenous to field-specific Dutch labor market conditions.
-
----
-
-## Key References
-
-- Bartik (1991), Card (2001) — shift-share instruments
-- Goldsmith-Pinkham, Sorkin, Swift (2020) — Bartik guide
-- Borusyak, Hull, Jaravel (2022) — quasi-experimental shift-share
-- Adão, Kolesár, Morales (2019) — shift-share inference
-- ROA (2024) — stay rates of international graduates in NL
-- Costas-Fernández et al. (2023) — foreign peer effects in England
-- Wang et al. (2021) — international program wage premium in NL
-
----
-
-## Notes
-
-- All data processing happens in memory — raw files are never modified.
-- The `data_tidy/` folder is in `.gitignore` (generated outputs).
-- For questions: r.ismailaga@students.uu.nl
+- **Field 04** (Recht/administratie/handel): duplicated → both `economie` and `recht`
+- **Field 06** (Informatica): mapped → `techniek` (CS programs in engineering faculties)
+- **Unknown field**: excluded (unrepresentative 50/50 split)
