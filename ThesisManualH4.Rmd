@@ -508,66 +508,7 @@ Z_visa_year <- visa_merged %>%
 
 # 6. LISS Field-of-Study Mapping
 
-```
-instellingscode,instellingsnaam,year,total_students,non_eu_students
-01,University A,2015,25000,3000
-01,University A,2016,25500,3200
-...
-```
-
-A pre-period snapshot (ideally 2015) is sufficient for the baseline share ---
-time-varying enrollment is not essential for the shift-share design.
-
-```{r instr-enrollment, eval=FALSE}
-# -- Uncomment and run when DUO data arrives --------------------------
-#
-# (1) Load enrollment data
-# enroll <- read.csv(
-#   "../../../Data/DUO Non-EU Enrollment by Institution/non_eu_enrollment.csv",
-#   sep = ";", check.names = FALSE
-# ) %>% clean_names()
-#
-# (2) Fix baseline shares (pre-period, e.g. 2015)
-# enroll_bl <- enroll %>%
-#   filter(year == min(year)) %>%
-#   mutate(share_nonEU = non_eu_students / total_students) %>%
-#   select(instellingscode, instellingsnaam, share_nonEU)
-#
-# (3) Aggregate non-EU visa rate per year (from IND data)
-# visa_neu_agg <- Consulates %>%
-#   inner_join(nat_shares, by = c("country" = "country_std")) %>%
-#   group_by(year) %>%
-#   summarise(Z_neu_visa = weighted.mean(acceptance_rate, share, na.rm = TRUE),
-#             .groups = "drop")
-#
-# (4) Per university-year instrument
-# uni_instr <- expand_grid(instellingscode = enroll_bl$instellingscode,
-#                           year = 2020:2024) %>%
-#   left_join(enroll_bl, by = "instellingscode") %>%
-#   left_join(visa_neu_agg, by = "year") %>%
-#   mutate(Z_uni = share_nonEU * Z_neu_visa)
-#
-# (5) Roll up to field level via DUO graduate composition
-# Use pre-period graduate shares as weights: what fraction of field f's
-# graduates come from each university?
-# grad_weights <- DUO_long %>%
-#   filter(year == min(year)) %>%
-#   group_by(onderdeel, instellingsnaam) %>%
-#   summarise(grads = sum(graduates, na.rm = TRUE), .groups = "drop_last") %>%
-#   mutate(weight = grads / sum(grads, na.rm = TRUE)) %>%
-#   ungroup() %>% select(-grads)
-#
-# Z_enroll_year <- uni_instr %>%
-#   inner_join(grad_weights, by = "instellingsnaam") %>%
-#   group_by(onderdeel, year) %>%
-#   summarise(Z_enroll = sum(weight * Z_uni, na.rm = TRUE), .groups = "drop")
-#
-# cat("[OK] Enrollment instrument built:",
-#     n_distinct(Z_enroll_year$onderdeel), "fields x",
-#     n_distinct(Z_enroll_year$year), "years\n")
-```
-
-# 6. Process LISS -> Estimation Sample
+# 7. LISS Panel Data
 
 ```{r process-liss-work}
 # -- LISS field-of-study code -> DUO field name map -----------------------------
@@ -815,14 +756,6 @@ est_data <- est_data %>%
   # Drop any row missing a key variable (complete-case analysis)
   filter(!is.na(share_int), !is.na(Z_visa_field), !is.na(log_income),
          !is.na(education_years), !is.na(hours_worked), !is.na(partner))
-
-# -- Enrollment instrument (conditional --- uncomment when DUO data exists) --
-# if (exists("Z_enroll_year")) {
-#   est_data <- est_data %>%
-#     left_join(Z_enroll_year, by = c("duo_field" = "onderdeel", "survey_year" = "year")) %>%
-#     mutate(Z_enroll_field = Z_enroll * bl_share) %>%
-#     filter(!is.na(Z_enroll_field))
-# }
 ```
 
 # 8. Descriptive Statistics
@@ -873,19 +806,7 @@ cat("\n**F-stat (visa instrument):**", round(f_visa, 2),
     ifelse(f_visa > 10, "-> Strong", "-> Weak"), "\n")
 ```
 
-# 10. Second Stage (2SLS)
-# f_enroll <- wald(fs_enroll, "Z_enroll_field")$stat
-# list("First Stage (Enrollment)" = fs_enroll) %>%
-#   modelsummary(stars = TRUE, gof_map = c("nobs", "r.squared"),
-#                output = "data.frame") %>%
-#   kable(caption = "First Stage: Enrollment x Visa Rate -> International Share",
-#         booktabs = TRUE) %>%
-#   kable_styling(latex_options = "hold_position")
-# cat("\n**F-stat (enrollment instrument):**", round(f_enroll, 2),
-#     ifelse(f_enroll > 10, "-> Strong", "-> Weak"), "\n")
-```
-
-# 10. Main Results
+# 9. Main Results
 
 ## 10.1 OLS
 
