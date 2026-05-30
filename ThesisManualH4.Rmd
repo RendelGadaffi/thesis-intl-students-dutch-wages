@@ -201,31 +201,24 @@ total_seniors <- total %>%
   summarise(total_seniors = sum(as.numeric(`Ouderejaarsstudenten (aantal)`), na.rm = TRUE), .groups = "drop")
 
 cbs_share <- total_seniors %>%
-cbs_field_map <- tibble(
-  Studierichting = c("01 Onderwijs", "02 Vormgeving, kunst, talen en gesch...", "03 Journalistiek, gedrag en maatschappij", "04 Recht, administratie, handel en za…", "05 Wiskunde, natuurwetenschappen", "06 Informatica", "07 Techniek, industrie en bouwkunde", "08 Landbouw, diergeneeskunde en -verz...", "09 Gezondheidszorg en welzijn", "10 Dienstverlening", "Onderwijsrichting onbekend"),
-  duo_field = c("onderwijs", "taal en cultuur", "gedrag en maatschappij", "recht", "natuur", "informatica", "techniek", "landbouw en natuurlijke omgeving", "gezondheidszorg", "dienstverlening", NA)
-)
-
-field_shares <- cbs_share %>%
-  left_join(cbs_field_map, by = "Studierichting") %>%
-  rename(onderdeel = duo_field) %>%
-  select(onderdeel, year, share_int) %>%
-  filter(!is.na(onderdeel))
   left_join(intl_seniors, by = c("Studierichting", "Perioden", "Onderwijssoort")) %>%
   mutate(
     share_int = ifelse(total_seniors > 0, intl_seniors / total_seniors, NA_real_),
     year = as.integer(str_sub(Perioden, 1, 4))
   )
 
-# Temporary bridge so downstream code that expects field_shares still runs.
-# TODO: map Studierichting (e.g. "01 Onderwijs") to the actual duo_field / onderdeel names used in LISS_panel and DUO_long.
-field_shares <- cbs_share %>%
-  rename(onderdeel = Studierichting) %>%
-  select(onderdeel, year, share_int)
+# Map CBS Studierichting codes to DUO field names (onderdeel) used in LISS_panel and DUO_long
+cbs_field_map <- tibble(
+  Studierichting = c("01 Onderwijs", "02 Vormgeving, kunst, talen en gesch...", "03 Journalistiek, gedrag en maatschappij", "04 Recht, administratie, handel en za…", "05 Wiskunde, natuurwetenschappen", "06 Informatica", "07 Techniek, industrie en bouwkunde", "08 Landbouw, diergeneeskunde en -verz...", "09 Gezondheidszorg en welzijn", "10 Dienstverlening", "Onderwijsrichting onbekend"),
+  duo_field = c("onderwijs", "taal en cultuur", "gedrag en maatschappij", "recht", "natuur", "informatica", "techniek", "landbouw en natuurlijke omgeving", "gezondheidszorg", "dienstverlening", NA)
+)
 
-# Note: Studierichting (e.g. "01 Onderwijs") will need a mapping to "onderdeel" in DUO_long
-# for joining with graduate totals if required downstream. The old is_international flag
-# and keyword lists are no longer used for the main share.
+# Map CBS Studierichting shares to DUO field names
+field_shares <- cbs_share %>%
+  left_join(cbs_field_map, by = "Studierichting") %>%
+  rename(onderdeel = duo_field) %>%
+  select(onderdeel, year, share_int) %>%
+  filter(!is.na(onderdeel))
 ```
 
 # 4. Process CBS -> Nationality Shares (2010, per AEA 10-year lag)
