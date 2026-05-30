@@ -1255,89 +1255,20 @@ list("RF-Visa (Std)" = rf_visa_z) %>%
 
 # 15. Subsample Analysis: University (WO) vs Professional (HBO)
 
-## 15.0 Derive WO/HBO Flag and Split est_data
+## 15.0 Derive WO/HBO from education_years in est_data
 
 ```{r edu-split}
-# Read raw LISS education data for a clean wo_flag
-base_liss <- "../../../Data/LISS Work and Schooling/Extracted"
+# education_years in est_data already correctly encodes tertiary education:
+#   16 = HBO (professional bachelor)
+#   15 = WO bachelor, 17 = WO master, 21 = PhD
+# This avoids any merge issues with edu_raw.
 
-early_files <- list(
-  "2020" = file.path(base_liss, "cw20m_EN_1.0p.csv"),
-  "2021" = file.path(base_liss, "cw21n_EN_1.0p.csv")
-)
-
-edu_raw <- map_dfr(names(early_files), function(yr) {
-  df <- read.csv(early_files[[yr]], check.names = FALSE, nrows = 1)
-  edu_col <- grep("highest level of education", names(df), value = TRUE, ignore.case = TRUE)[1]
-  df <- read.csv(early_files[[yr]], check.names = FALSE)
-  edu_text <- as.character(df[[edu_col]])
-  nomem <- as.character(df[[1]])
-  tibble(nomem_encr = nomem, survey_year = as.integer(yr),
-         wo_flag = case_when(
-           grepl("^hbo|^teacher training|^conservatory|^art academy", edu_text, ignore.case = TRUE) ~ "HBO",
-           grepl("academic|^university|doctor|ph.d|phd", edu_text, ignore.case = TRUE) ~ "WO",
-           TRUE ~ "Other"))
-})
-
-late_years <- c("2022" = "o", "2023" = "p", "2024" = "q")
-for (yr in names(late_years)) {
-  wave_letter <- late_years[[yr]]
-  prefix <- paste0("cw", substr(yr, 3, 4), wave_letter)
-  path <- file.path(base_liss, paste0(prefix, "_EN_1.0p.csv"))
-  if (yr == "2023") path <- file.path(base_liss, paste0(prefix, "_EN_2.0p.csv"))
-  if (file.exists(path)) {
-    df <- read.csv(path, sep = ";", check.names = FALSE)
-    edu_col <- paste0(prefix, "525")
-    if (edu_col %in% names(df)) {
-      edu_code <- as.numeric(df[[edu_col]])
-      nomem <- as.character(df[[1]])
-      edu_raw <- bind_rows(edu_raw, tibble(
-        nomem_encr = nomem, survey_year = as.integer(yr),
-        wo_flag = case_when(edu_code == 7 ~ "HBO", edu_code %in% 8:10 ~ "WO", TRUE ~ "Other")))
-    }
-  }
-}
-
-# Merge wo_flag into est_data, then split
-cat("est_data rows before merge:", nrow(est_data), "\n")
-cat("edu_raw rows:", nrow(edu_raw), "\n")
-
-# Check join key compatibility
-cat("nomem_encr type in est_data:", class(est_data$nomem_encr)[1], "\n")
-cat("nomem_encr type in edu_raw:", class(edu_raw$nomem_encr)[1], "\n")
-cat("survey_year type in est_data:", class(est_data$survey_year)[1], "\n")
-cat("survey_year type in edu_raw:", class(edu_raw$survey_year)[1], "\n\n")
-
-# Sample values
-cat("est_data nomem_encr sample:", paste(head(est_data$nomem_encr, 3), collapse=", "), "\n")
-cat("edu_raw nomem_encr sample:", paste(head(edu_raw$nomem_encr, 3), collapse=", "), "\n\n")
-
-# Check if issue is whitespace in est_data
-has_ws <- sum(grepl("^\\s|\\s$", est_data$nomem_encr))
-cat("nomem_encr with whitespace in est_data:", has_ws, "\n")
-
-# Direct match test: how many est_data nomem_encr exist in edu_raw?
-# (using only 2020 as a sample)
-ed20 <- unique(edu_raw$nomem_encr[edu_raw$survey_year == 2020])
-es20 <- unique(est_data$nomem_encr[est_data$survey_year == 2020])
-cat("Unique nomem in edu_raw 2020:", length(ed20), "\n")
-cat("Unique nomem in est_data 2020:", length(es20), "\n")
-cat("est_data 2020 nomem in edu_raw:", sum(es20 %in% ed20), "/", length(es20), "\n\n")
-
-# Check survey_year distribution
-cat("survey_year in est_data:\n")
-print(table(est_data$survey_year))
-cat("\nsurvey_year in edu_raw:\n")
-print(table(edu_raw$survey_year))
-
-# Actually do the merge — coerce survey_year to same type first
 est_data <- est_data %>%
-  mutate(survey_year = as.integer(survey_year)) %>%
-  left_join(edu_raw, by = c("nomem_encr", "survey_year")) %>%
-  mutate(wo_flag = coalesce(wo_flag, "Other"))
-
-cat("\nwo_flag distribution after merge:\n")
-print(table(est_data$wo_flag, useNA = "ifany"))
+  mutate(wo_flag = case_when(
+    education_years == 16 ~ "HBO",
+    education_years %in% c(15, 17, 21) ~ "WO",
+    TRUE ~ "Other"
+  ))
 
 wo  <- est_data %>% filter(wo_flag == "WO")
 hbo <- est_data %>% filter(wo_flag == "HBO")
