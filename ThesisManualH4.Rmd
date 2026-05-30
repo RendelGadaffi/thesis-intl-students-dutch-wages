@@ -919,7 +919,7 @@ est_data %>%
             `Partner` = mean(partner, na.rm = TRUE),
             `Tenure` = mean(tenure_years, na.rm = TRUE),
             `Share Intl` = mean(share_int), `Share Intl (SD)` = sd(share_int),
-            `Z_visa` = mean(Z_visa, na.rm = TRUE), `Z_youth` = mean(Z_youth, na.rm = TRUE),
+            `Z_visa_field` = mean(Z_visa_field, na.rm = TRUE), `Z_youth_field` = mean(Z_youth_field, na.rm = TRUE),
             `STEM` = mean(stem)) %>%
   # Reshape to vertical format (one statistic per row) for a cleaner table
   pivot_longer(everything(), names_to = "Statistic", values_to = "Value") %>%
