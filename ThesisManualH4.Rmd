@@ -201,16 +201,17 @@ total_seniors <- total %>%
   summarise(total_seniors = sum(as.numeric(`Ouderejaarsstudenten (aantal)`), na.rm = TRUE), .groups = "drop")
 
 cbs_share <- total_seniors %>%
-# Temporary bridge so downstream code that expects field_shares still runs.
-# TODO: map Studierichting (e.g. "01 Onderwijs") to the actual duo_field / onderdeel names used in LISS_panel and DUO_long.
-field_shares <- cbs_share %>%
-  rename(onderdeel = Studierichting) %>%
-  select(onderdeel, year, share_int)
   left_join(intl_seniors, by = c("Studierichting", "Perioden", "Onderwijssoort")) %>%
   mutate(
     share_int = ifelse(total_seniors > 0, intl_seniors / total_seniors, NA_real_),
     year = as.integer(str_sub(Perioden, 1, 4))
   )
+
+# Temporary bridge so downstream code that expects field_shares still runs.
+# TODO: map Studierichting (e.g. "01 Onderwijs") to the actual duo_field / onderdeel names used in LISS_panel and DUO_long.
+field_shares <- cbs_share %>%
+  rename(onderdeel = Studierichting) %>%
+  select(onderdeel, year, share_int)
 
 # Note: Studierichting (e.g. "01 Onderwijs") will need a mapping to "onderdeel" in DUO_long
 # for joining with graduate totals if required downstream. The old is_international flag
