@@ -194,8 +194,7 @@ english_kw <- c("studies", "science", "engineering", "management", "economics", 
                 "hydrology", "robotics", "oncology", "epidemiology", "forensic",
                 "technical", "industrial", "applied", "earth", "medical", "joint",
                 "environmental", "animal", "biobased", "finance", "marketing",
-                "humanistiek", "literatuurwetenschap", "natuurkunde", "organisatiewetenschap", "wiskunde",
-                "farmacie", "change")
+                "change", "soil", "water", "atmosphere", "food", "safety")
 
 dutch_kw <- c("wetenschappen", "kunde", "onderwijs", "bestuur", "gedrag", "maatschappij",
               "geneeskunde", "tandheelkunde", "rechten", "economie", "bedrijfskunde",
@@ -210,7 +209,13 @@ dutch_kw <- c("wetenschappen", "kunde", "onderwijs", "bestuur", "gedrag", "maats
               "betrekkingen", "organisatie", "beleid", "rechtsgeleerdheid", "religiewetenschappen",
               "master", "ad", "therapie", "therapies", "leiderschap", "performing", "arts",
               "frontend", "design", "development", "operationeel", "smart", "media",
-              "event", "experience", "accountmanagement", "sales", "iot", "internet")
+              "event", "experience", "accountmanagement", "sales", "iot", "internet",
+              "kunst", "architectuur", "leraar", "voorbereidend", "hoger",
+              "letterkunde", "oudheid", "bos", "natuurbeheer", "agrotechnologie", "planten",
+              "bedrijfs", "consumenten", "ontwikkelings", "internationale", "onderzoek",
+              "product", "strategisch", "taalwetenschap", "kunstgeschiedenis", "oudheidstudies",
+              "plantenwetenschappen", "biotechnologie", "biologie", "moleculaire", "levenswetenschappen",
+              "onderneming")
 
 prog_class <- tibble(opleidingsnaam = unique(DUO_long$opleidingsnaam)) %>%
   mutate(is_international = sapply(opleidingsnaam, function(nm) {
