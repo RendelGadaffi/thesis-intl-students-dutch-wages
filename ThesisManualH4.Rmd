@@ -161,69 +161,61 @@ Consulates <- bind_rows(visa_list)
 
 ```{r process-duo}
 # -- Stack WO and HBO graduate data --------------------------------------------
-DUO_all <- bind_rows(GradsUni %>% mutate(level = "WO"), GradsProf %>% mutate(level = "HBO"))
-# Assign clean English column names to the 19 columns (18 original + 1 from mutate above)
-names(DUO_all) <- c("provincie","gem_nummer","gem_naam","soort_instelling","instellingscode",
-                     "instellingsnaam","onderdeel","subonderdeel","opleidingscode","opleidingsnaam",
-                     "opleidingsvorm","soort_diploma","geslacht","y2020","y2021","y2022","y2023","y2024","level")
+DUO_all <- bind_rows(GradsUni %>% mutate(level = "WO"),
+                     GradsProf %>% mutate(level = "HBO"))
+
+names(DUO_all) <- c("provincie", "gem_nummer", "gem_naam", "soort_instelling",
+                    "instellingscode", "instellingsnaam", "onderdeel", "subonderdeel",
+                    "opleidingscode", "opleidingsnaam", "opleidingsvorm", "soort_diploma",
+                    "geslacht", "y2020", "y2021", "y2022", "y2023", "y2024", "level")
 
 # -- Reshape from wide to long format ------------------------------------------
-# DUO has columns y2020..y2024 (one column per year). pivot_longer collapses these
-# into two columns: 'year_chr' (the year label, e.g. "y2020") and 'graduates_raw' (the count).
 DUO_long <- DUO_all %>%
   pivot_longer(cols = y2020:y2024, names_to = "year_chr", values_to = "graduates_raw") %>%
   mutate(
-    year = as.integer(str_replace(year_chr, "y", "")),          # Convert "y2020" -> 2020 (integer)
-    graduates_suppressed = str_detect(as.character(graduates_raw), "<"),  # TRUE if value is "<5" (privacy suppression)
-    graduates = ifelse(graduates_suppressed, NA_real_,                     # Replace suppressed values with NA
-                       as.numeric(str_replace_all(as.character(graduates_raw), "[^0-9-]", ""))),  # Strip non-numeric chars
-    onderdeel = str_to_lower(str_trim(onderdeel))               # Standardize field names (lowercase, trimmed)
+    year = as.integer(str_replace(year_chr, "y", "")),
+    graduates_suppressed = str_detect(as.character(graduates_raw), "<"),
+    graduates = ifelse(graduates_suppressed, NA_real_,
+                       as.numeric(str_replace_all(as.character(graduates_raw), "[^0-9-]", ""))),
+    onderdeel = str_to_lower(str_trim(onderdeel))
   )
 
-# -- Classify programs as international (English-taught) or Dutch-taught ------
-# English keywords: words that typically appear in English-language program names
-english_kw <- c("studies","science","engineering","management","economics","business",
-                "international","global","european","research","development","technology",
-                "policy","law","health","sustainability","innovation","governance","leadership",
-                "psychology","sociology","anthropology","communication",
-                "and","the","in","of","for","data","design","media")
-# Dutch keywords: words that appear in Dutch-language program names
-dutch_kw <- c("wetenschappen","kunde","onderwijs","bestuur","gedrag","maatschappij",
-              "geneeskunde","tandheelkunde","rechten","economie","bedrijfskunde",
-              "gezondheid","zorg","techniek","voltijd","deeltijd","duaal","recht","beheer",
-              "studie","opleiding","natuur")
+# -- Classify programs as international (English-taught) vs Dutch-taught ------
+english_kw <- c("studies", "science", "engineering", "management", "economics", "business",
+                "international", "global", "european", "research", "development", "technology",
+                "policy", "law", "health", "sustainability", "innovation", "governance",
+                "leadership", "psychology", "sociology", "anthropology", "communication",
+                "and", "the", "in", "of", "for", "data", "design", "media")
 
-# For each unique program name, count how many English vs Dutch keywords it contains.
-# If English > Dutch AND at least one English keyword found, classify as "international" (TRUE).
+dutch_kw <- c("wetenschappen", "kunde", "onderwijs", "bestuur", "gedrag", "maatschappij",
+              "geneeskunde", "tandheelkunde", "rechten", "economie", "bedrijfskunde",
+              "gezondheid", "zorg", "techniek", "voltijd", "deeltijd", "duaal", "recht",
+              "beheer", "studie", "opleiding", "natuur")
+
 prog_class <- tibble(opleidingsnaam = unique(DUO_long$opleidingsnaam)) %>%
   mutate(is_international = sapply(opleidingsnaam, function(nm) {
-    words <- tolower(nm) %>% str_split("[^a-z]") %>% unlist()   # Split name into individual words (lowercase)
-    words <- words[nchar(words) > 1]                             # Drop single-letter words ("a", "en")
-    if (length(words) == 0) return(NA)                           # If no real words found, return NA (unclassifiable)
-    eng <- sum(words %in% english_kw)                             # Count English keyword matches
-    dut <- sum(words %in% dutch_kw)                               # Count Dutch keyword matches
-    eng > dut && eng >= 1                                         # TRUE if more English than Dutch words
+    words <- tolower(nm) %>% str_split("[^a-z]") %>% unlist()
+    words <- words[nchar(words) > 1]
+    if (length(words) == 0) return(NA)
+    eng <- sum(words %in% english_kw)
+    dut <- sum(words %in% dutch_kw)
+    eng > dut && eng >= 1
   }))
 
-# Merge the classification back into the main data frame
 DUO_long <- DUO_long %>% left_join(prog_class, by = "opleidingsnaam")
 
-# -- Compute field-level international share -----------------------------------
-# For each field (onderdeel) x year, compute:
-#   share_int = graduates from international programs / total graduates in that field
+# -- Field-level international share -------------------------------------------
 field_shares <- DUO_long %>%
-  filter(!is.na(is_international), !is.na(graduates), graduates > 0) %>%  # Drop unclassifiable or suppressed rows
-  group_by(onderdeel, year) %>%                                           # Group by field x year
+  filter(!is.na(is_international), !is.na(graduates), graduates > 0) %>%
+  group_by(onderdeel, year) %>%
   summarise(
-    total_graduates = sum(graduates, na.rm = TRUE),                       # Total graduates in this field-year
-    intl_graduates  = sum(graduates[is_international == TRUE], na.rm = TRUE),  # Graduates from English programs
-    .groups = "drop"                                                      # Ungroup after summarising
+    total_graduates = sum(graduates, na.rm = TRUE),
+    intl_graduates  = sum(graduates[is_international == TRUE], na.rm = TRUE),
+    .groups = "drop"
   ) %>%
-  mutate(share_int = intl_graduates / total_graduates)                    # Endogenous variable: share international
+  mutate(share_int = intl_graduates / total_graduates)
 
-# -- Compute institution-level international share (for robustness) ------------
-# Same computation but grouped at the institution x field x year level.
-# This produces finer-grained variation (different fields within the same university).
+# -- Institution-level international share (robustness) ------------------------
 inst_shares <- DUO_long %>%
   filter(!is.na(is_international), !is.na(graduates), graduates > 0) %>%
   group_by(instellingsnaam, onderdeel, year) %>%
