@@ -93,13 +93,17 @@ visa_files <- c(
 # -- DUO graduate counts by institution / field / gender -----------------------
 # DUO (Dienst Uitvoering Onderwijs) publishes yearly graduate counts broken down
 # by institution, field of study (onderdeel), gender, and education level.
-# Two separate files: WO (university/hbo-master) and HBO (professional bachelor).
-# A third file records institution addresses/locations for geographic matching.
+# Two files: WO (university) and HBO (professional bachelor).
 
-# University-level (WO) graduates: semicolon-separated CSV
-GradsUni <- read.csv("../../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/Graduates by Gender, Institution, Field of study, University level.csv", sep = ";")
-# Professional-level (HBO) graduates: semicolon-separated CSV
-GradsProf <- read.csv("../../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/Graduates by Gender, Institution, Field of study, Professional level.csv", sep = ";")
+GradsUni <- read_delim(
+  "../../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/Graduates by Gender, Institution, Field of study, University level.csv",
+  delim = ";"
+)
+
+GradsProf <- read_delim(
+  "../../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/Graduates by Gender, Institution, Field of study, Professional level.csv",
+  delim = ";"
+)
 # Institution address metadata: used to geolocate institutions to provinces/cities
 InstitutionAddys <- read.csv("../../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/Higher education institutes location.csv", sep = ";")
 ```
