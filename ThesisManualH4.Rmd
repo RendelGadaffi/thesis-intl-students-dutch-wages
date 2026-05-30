@@ -136,14 +136,12 @@ for (i in seq_along(visa_files)) {
   # Filter to Netherlands consulates and select key columns
   # (adjust the exact column names below after viewing the data in R)
   nl <- df %>%
-    filter(if_any(contains("schengen"), ~ str_detect(., regex("Netherlands|Nederland", ignore_case = TRUE)))) %>%
-    filter(if_any(contains("visa|type|uniform"), ~ str_detect(., regex("uniform", ignore_case = TRUE)))) %>%
-    mutate(
-      country = as.character(.data[[names(.)[str_detect(names(.), "country|consul|nationality")][1]]]),
-      not_issued_rate = as.numeric(.data[[names(.)[str_detect(names(.), "not.*issued|rejection|refusal")][1]]]),
-      year = year
+    filter(schengen_state == "Netherlands") %>%
+    select(
+      country = country_where_consulate_is_located,
+      not_issued_rate = not_issued_rate_for_uniform_visas,
+      year
     ) %>%
-    select(country, not_issued_rate, year) %>%
     mutate(
       acceptance_rate = 1 - not_issued_rate,
       country = str_to_upper(str_trim(country))
