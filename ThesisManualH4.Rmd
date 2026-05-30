@@ -1254,16 +1254,18 @@ list("RF-Visa (Std)" = rf_visa_z) %>%
 ```
 
 # 15. Subsample Analysis: University (WO) vs Professional (HBO)
+#
+# Unlike the main analysis (which uses a pooled WO+HBO share_int),
+# this section computes separate international-background senior shares
+# for WO and HBO using the CBS subgroups file's Onderwijssoort column.
+# LISS respondents are then matched to their own education level's share.
 
-## 15.0 Derive Clean WO/HBO Flag from Raw LISS Data
+## 15.0 Build Education-Level-Specific Estimation Dataset
 
-```{r edu-flag}
-# Read raw education data directly for all waves to build a clean wo flag.
-# This bypasses the incomplete regex mapping in the LISS parsers.
-
+```{r edu-build}
+# -- 1. Read raw LISS education data for a clean wo_flag ----------------------
 base_liss <- "../../../Data/LISS Work and Schooling/Extracted"
 
-# Early waves (2020-2021): text-based education
 early_files <- list(
   "2020" = file.path(base_liss, "cw20m_EN_1.0p.csv"),
   "2021" = file.path(base_liss, "cw21n_EN_1.0p.csv")
@@ -1272,11 +1274,9 @@ early_files <- list(
 edu_raw <- map_dfr(names(early_files), function(yr) {
   df <- read.csv(early_files[[yr]], check.names = FALSE, nrows = 1)
   edu_col <- grep("highest level of education", names(df), value = TRUE, ignore.case = TRUE)[1]
-  
   df <- read.csv(early_files[[yr]], check.names = FALSE)
   edu_text <- as.character(df[[edu_col]])
   nomem <- as.character(df[[1]])
-  
   tibble(
     nomem_encr = nomem,
     survey_year = as.integer(yr),
@@ -1288,77 +1288,119 @@ edu_raw <- map_dfr(names(early_files), function(yr) {
   )
 })
 
-# Late waves (2022-2024): numeric edu codes
 late_years <- c("2022" = "o", "2023" = "p", "2024" = "q")
-
 for (yr in names(late_years)) {
   wave_letter <- late_years[[yr]]
   prefix <- paste0("cw", substr(yr, 3, 4), wave_letter)
   path <- file.path(base_liss, paste0(prefix, "_EN_1.0p.csv"))
   if (yr == "2023") path <- file.path(base_liss, paste0(prefix, "_EN_2.0p.csv"))
-  
   if (file.exists(path)) {
     df <- read.csv(path, sep = ";", check.names = FALSE)
     edu_col <- paste0(prefix, "525")
-    
     if (edu_col %in% names(df)) {
       edu_code <- as.numeric(df[[edu_col]])
       nomem <- as.character(df[[1]])
-      
       edu_raw <- bind_rows(edu_raw, tibble(
-        nomem_encr = nomem,
-        survey_year = as.integer(yr),
-        wo_flag = case_when(
-          edu_code == 7 ~ "HBO",
-          edu_code %in% 8:10 ~ "WO",
-          TRUE ~ "Other"
-        )
+        nomem_encr = nomem, survey_year = as.integer(yr),
+        wo_flag = case_when(edu_code == 7 ~ "HBO", edu_code %in% 8:10 ~ "WO", TRUE ~ "Other")
       ))
     }
   }
 }
 
-# Merge into est_data by (nomem_encr, survey_year)
-est_data <- est_data %>%
-  left_join(edu_raw, by = c("nomem_encr", "survey_year")) %>%
-  mutate(wo_flag = coalesce(wo_flag, "Other"))
+# -- 2. Compute level-specific international shares from CBS subgroups -------
+base <- "../../../Data/CBS Incoming Student Ethnical Makeup"
 
-wo  <- est_data %>% filter(wo_flag == "WO")
-hbo <- est_data %>% filter(wo_flag == "HBO")
+cbs_edu <- read_delim(file.path(base, "Born in or out NL, FoS, gender, subgroups.csv"),
+                       delim = ";", show_col_types = FALSE) %>%
+  clean_names() %>%
+  mutate(
+    students = as.numeric(str_trim(ouderejaarsstudenten_aantal)),
+    year = as.integer(str_sub(perioden, 1, 4)),
+    onderwijssoort = tolower(str_trim(onderwijssoort))
+  )
+
+# Total seniors per (field, year, level)
+total_edu <- cbs_edu %>%
+  filter(!is.na(students), students > 0) %>%
+  group_by(studierichting, year, onderwijssoort) %>%
+  summarise(total_seniors = sum(students, na.rm = TRUE), .groups = "drop")
+
+# International-background seniors per (field, year, level)
+intl_edu <- cbs_edu %>%
+  filter(geboorteland_ouders == "Geboren buiten Nederland",
+         !is.na(students), students > 0) %>%
+  group_by(studierichting, year, onderwijssoort) %>%
+  summarise(intl_seniors = sum(students, na.rm = TRUE), .groups = "drop")
+
+# Share per (field, year, level)
+cbs_share_edu <- total_edu %>%
+  left_join(intl_edu, by = c("studierichting", "year", "onderwijssoort")) %>%
+  mutate(share_int = ifelse(total_seniors > 0,
+                            coalesce(intl_seniors, 0) / total_seniors, NA_real_))
+
+# Map to DUO fields (same sub-field mapping as main analysis)
+field_shares_edu <- cbs_share_edu %>%
+  inner_join(cbs_field_map, by = "studierichting") %>%
+  group_by(duo_field, year, onderwijssoort) %>%
+  summarise(share_int = weighted.mean(share_int, total_seniors, na.rm = TRUE),
+            .groups = "drop") %>%
+  rename(onderdeel = duo_field) %>%
+  mutate(wo_flag = recode(onderwijssoort,
+                          "hoger beroepsonderwijs" = "HBO",
+                          "wetenschappelijk onderwijs" = "WO"))
+
+# -- 3. Build education-specific estimation dataset ---------------------------
+est_data_edu <- LISS_panel %>%
+  left_join(edu_raw, by = c("nomem_encr", "survey_year")) %>%
+  filter(wo_flag %in% c("WO", "HBO")) %>%
+  left_join(field_shares_edu, by = c("duo_field" = "onderdeel",
+                                      "survey_year" = "year", "wo_flag")) %>%
+  left_join(Z_visa_field_year, by = c("duo_field", "survey_year" = "year")) %>%
+  mutate(
+    log_income = log(gross_monthly_income),
+    age_sq = age^2,
+    hours_sq = hours_worked^2,
+    partner = as.logical(partner),
+    education_years = ifelse(is.na(education_years),
+                             median(education_years, na.rm = TRUE), education_years)
+  ) %>%
+  filter(!is.na(share_int), !is.na(Z_visa_field), !is.na(log_income),
+         !is.na(education_years), !is.na(hours_worked), !is.na(partner))
+
+# -- 4. Split and describe ----------------------------------------------------
+wo  <- est_data_edu %>% filter(wo_flag == "WO")
+hbo <- est_data_edu %>% filter(wo_flag == "HBO")
 
 cat("WO observations:", nrow(wo), "| Fields:", n_distinct(wo$duo_field), "\n")
 cat("HBO observations:", nrow(hbo), "| Fields:", n_distinct(hbo$duo_field), "\n")
-cat("Other:", sum(est_data$wo_flag == "Other"), "\n")
+cat("Total (edu sample):", nrow(est_data_edu), "\n\n")
 
-# Descriptive comparison
-est_data %>%
-  filter(wo_flag %in% c("WO", "HBO")) %>%
+est_data_edu %>%
   group_by(wo_flag) %>%
   summarise(N = sprintf("%d", n()),
             `Log Income` = sprintf("%.3f (%.3f)", mean(log_income), sd(log_income)),
             `Share Intl` = sprintf("%.3f (%.3f)", mean(share_int), sd(share_int)),
             `Age` = sprintf("%.1f (%.1f)", mean(age), sd(age)),
             .groups = "drop") %>%
-  kable(caption = "Descriptive Statistics: WO vs HBO", booktabs = TRUE) %>%
+  kable(caption = "Descriptive Statistics: WO vs HBO (Level-Specific Shares)",
+        booktabs = TRUE) %>%
   kable_styling(latex_options = "hold_position")
 ```
 
 ## 15.1 First Stage by Education Level
 
 ```{r edu-firststage, results='asis'}
-# WO first stage
 fs_wo <- feols(share_int ~ Z_visa_field + age + age_sq + education_years +
                  hours_worked + hours_sq + partner | duo_field,
                data = wo, cluster = ~duo_field)
 invisible(capture.output(f_wo <- wald(fs_wo, "Z_visa_field")$stat))
 
-# HBO first stage
 fs_hbo <- feols(share_int ~ Z_visa_field + age + age_sq + education_years +
                   hours_worked + hours_sq + partner | duo_field,
                 data = hbo, cluster = ~duo_field)
 invisible(capture.output(f_hbo <- wald(fs_hbo, "Z_visa_field")$stat))
 
-# Table
 f_table_edu <- data.frame(
   Subsample = c("WO (University)", "HBO (Professional)"),
   `F-statistic` = c(round(f_wo, 1), round(f_hbo, 1)),
@@ -1373,11 +1415,9 @@ kable(f_table_edu, caption = "First-Stage F-Statistics: WO vs HBO",
 ## 15.2 OLS by Education Level
 
 ```{r edu-ols}
-# WO OLS
 ols_wo <- feols(log_income ~ share_int + age + age_sq + education_years +
                   hours_worked + hours_sq + partner | duo_field,
                 data = wo, cluster = ~duo_field)
-# HBO OLS
 ols_hbo <- feols(log_income ~ share_int + age + age_sq + education_years +
                    hours_worked + hours_sq + partner | duo_field,
                  data = hbo, cluster = ~duo_field)
@@ -1393,16 +1433,13 @@ list("WO (OLS)" = ols_wo, "HBO (OLS)" = ols_hbo) %>%
 ## 15.3 2SLS by Education Level
 
 ```{r edu-iv}
-# WO 2SLS
 iv_wo <- feols(log_income ~ age + age_sq + education_years + hours_worked +
                  hours_sq + partner | duo_field |
                  share_int ~ Z_visa_field, data = wo, cluster = ~duo_field)
-# HBO 2SLS
 iv_hbo <- feols(log_income ~ age + age_sq + education_years + hours_worked +
                   hours_sq + partner | duo_field |
                   share_int ~ Z_visa_field, data = hbo, cluster = ~duo_field)
 
-# Side-by-side table
 list("WO (2SLS)" = iv_wo, "HBO (2SLS)" = iv_hbo) %>%
   modelsummary(stars = TRUE, estimate = "{estimate} ({std.error}){stars}",
                statistic = NULL, gof_map = c("nobs", "r.squared"),
@@ -1432,7 +1469,6 @@ list("WO (RF)" = rf_wo, "HBO (RF)" = rf_hbo) %>%
 ## 15.5 STEM vs Non-STEM Within WO and HBO
 
 ```{r edu-stem-split}
-# Create four-way splits
 wo_stem  <- wo  %>% filter(stem == TRUE)
 wo_nstem <- wo  %>% filter(stem == FALSE)
 hbo_stem  <- hbo %>% filter(stem == TRUE)
@@ -1443,20 +1479,17 @@ cat("WO + Non-STEM:", nrow(wo_nstem), "| Fields:", n_distinct(wo_nstem$duo_field
 cat("HBO + STEM:", nrow(hbo_stem),  "| Fields:", n_distinct(hbo_stem$duo_field),  "\n")
 cat("HBO + Non-STEM:", nrow(hbo_nstem), "| Fields:", n_distinct(hbo_nstem$duo_field), "\n")
 
-# Run first stage + 2SLS for any group with >= 100 obs
 run_if <- function(label, data) {
   if (nrow(data) < 100 || n_distinct(data$duo_field) < 2) {
     cat("Skipping", label, "- insufficient data\n")
     return()
   }
-  
   fs <- feols(share_int ~ Z_visa_field + age + age_sq + education_years +
                 hours_worked + hours_sq + partner | duo_field,
               data = data, cluster = ~duo_field)
   iv <- feols(log_income ~ age + age_sq + education_years + hours_worked +
                 hours_sq + partner | duo_field |
                 share_int ~ Z_visa_field, data = data, cluster = ~duo_field)
-  
   cat("\n###", label, "\n\n")
   list("First Stage" = fs, "2SLS" = iv) %>%
     modelsummary(stars = TRUE, estimate = "{estimate} ({std.error}){stars}",
