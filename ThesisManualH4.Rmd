@@ -27,7 +27,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 pacman::p_load(`pacman`)
 p_load(tidyverse); p_load(readxl); p_load(janitor); p_load(fixest)
 p_load(modelsummary); p_load(kableExtra); p_load(WDI)
-p_load(rt)
+p_load(rt); p_load(hunspell)
 ```
 
 # 1. Data Loading
@@ -181,22 +181,7 @@ DUO_long <- DUO_all %>%
   )
 
 # -- Classify programs as international (English-taught) vs Dutch-taught ------
-english_kw <- c("studies", "science", "engineering", "management", "economics", "business",
-                "international", "global", "european", "research", "development", "technology",
-                "policy", "law", "health", "sustainability", "innovation", "governance",
-                "leadership", "psychology", "sociology", "anthropology", "communication",
-                "and", "the", "of", "for", "data", "design", "media",
-                "geography", "entrepreneurship", "cultural", "human", "theology",
-                "neuroscience", "informatics", "mathematics", "physics", "chemistry",
-                "biology", "history", "philosophy", "linguistics", "literature",
-                "artificial", "intelligence", "spatial", "planning", "biomedical", "molecular", "information", "natural",
-                "pharmaceutical", "biotechnology", "nanotechnology", "astronomy", "ecology",
-                "hydrology", "robotics", "oncology", "epidemiology", "forensic",
-                "technical", "industrial", "applied", "earth", "medical", "joint",
-                "environmental", "animal", "biobased", "finance", "marketing",
-                "humanistiek", "literatuurwetenschap", "natuurkunde", "organisatiewetenschap", "wiskunde",
-                "farmacie", "change")
-
+# Use full English lexicon (hunspell) + Dutch keyword list. Classify by higher count.
 dutch_kw <- c("wetenschappen", "kunde", "onderwijs", "bestuur", "gedrag", "maatschappij",
               "geneeskunde", "tandheelkunde", "rechten", "economie", "bedrijfskunde",
               "gezondheid", "zorg", "techniek", "voltijd", "deeltijd", "duaal", "recht",
@@ -210,14 +195,25 @@ dutch_kw <- c("wetenschappen", "kunde", "onderwijs", "bestuur", "gedrag", "maats
               "betrekkingen", "organisatie", "beleid", "rechtsgeleerdheid", "religiewetenschappen")
 
 prog_class <- tibble(opleidingsnaam = unique(DUO_long$opleidingsnaam)) %>%
-  mutate(is_international = sapply(opleidingsnaam, function(nm) {
-    words <- tolower(nm) %>% str_split("[^a-z]") %>% unlist()
-    words <- words[nchar(words) > 1]
-    if (length(words) == 0) return(NA)
-    eng <- sum(words %in% english_kw)
-    dut <- sum(words %in% dutch_kw)
-    eng > dut && eng >= 1
-  }))
+  mutate(
+    english_count = map_int(opleidingsnaam, ~ {
+      words <- tolower(.) %>% str_split("[^a-z]") %>% unlist()
+      words <- words[nchar(words) > 1]
+      if (length(words) == 0) return(0)
+      sum(hunspell::hunspell_check(words, dict = "en_US"))
+    }),
+    dutch_count = map_int(opleidingsnaam, ~ {
+      words <- tolower(.) %>% str_split("[^a-z]") %>% unlist()
+      words <- words[nchar(words) > 1]
+      sum(words %in% dutch_kw)
+    }),
+    is_international = english_count > dutch_count
+  )
+
+# Flag close cases for manual review (difference of 0 or 1)
+close_cases <- prog_class %>%
+  filter(abs(english_count - dutch_count) <= 1) %>%
+  arrange(desc(english_count + dutch_count))
 
 DUO_long <- DUO_long %>% left_join(prog_class, by = "opleidingsnaam")
 
