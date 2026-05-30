@@ -136,7 +136,7 @@ for (i in seq_along(visa_files)) {
   # Filter to Netherlands consulates and select key columns
   # (adjust the exact column names below after viewing the data in R)
   nl <- df %>%
-    filter(str_detect(schengen, "Netherlands|Nederland", ignore.case = TRUE)) %>%
+    filter(str_detect(schengen, regex("Netherlands|Nederland", ignore_case = TRUE))) %>%
     select(
       country = country_of_nationality,     # or "country" / "consulate"
       not_issued_rate = not_issued_rate,    # or "rejection_rate" / "refusal_rate"
