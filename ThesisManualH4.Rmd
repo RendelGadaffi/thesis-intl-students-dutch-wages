@@ -491,6 +491,20 @@ Z_visa_field_year <- Z_visa_field_year %>%
   )
 ```
 
+# -- Build lagged instruments (1-5 years) ---------------------------------------
+# For each lag L, shift the visa year forward: Z_visa at year (t-L) becomes
+# the instrument for observations in year t. Only lags with available visa
+# data will produce non-NA values (2020-2024 visa data -> lags 1-2 full,
+# lag 3 partial for 2023-2024, lag 4 only for 2024, lag 5 no coverage).
+lags <- 1:5
+for (L in lags) {
+  col_name <- paste0("Z_visa_field_lag", L)
+  lag_df <- Z_visa_field_year %>%
+    mutate(year = year + L) %>%
+    select(duo_field, year, !!sym(col_name) := Z_visa_field)
+  assign(col_name, lag_df)
+}
+
 # 5. Construct Instruments
 
 ## 5.1 Nationality Name Mapping
@@ -791,7 +805,13 @@ est_data <- LISS_panel %>%
   # Merge field-level international share (endogenous variable)
   left_join(field_shares, by = c("duo_field" = "onderdeel", "survey_year" = "year")) %>%
   # Merge field-specific instruments (Z_visa from nationality matrix)
-  left_join(Z_visa_field_year, by = c("duo_field", "survey_year" = "year"))
+  left_join(Z_visa_field_year, by = c("duo_field", "survey_year" = "year")) %>%
+  # Merge lagged instruments (will produce NAs for lags with no visa data)
+  left_join(Z_visa_field_lag1, by = c("duo_field", "survey_year" = "year")) %>%
+  left_join(Z_visa_field_lag2, by = c("duo_field", "survey_year" = "year")) %>%
+  left_join(Z_visa_field_lag3, by = c("duo_field", "survey_year" = "year")) %>%
+  left_join(Z_visa_field_lag4, by = c("duo_field", "survey_year" = "year")) %>%
+  left_join(Z_visa_field_lag5, by = c("duo_field", "survey_year" = "year"))
 
 est_data <- est_data %>%
   # Drop any row missing a key variable (complete-case analysis)
@@ -1407,3 +1427,119 @@ run_if("WO + Non-STEM", wo_nstem)
 run_if("HBO + STEM", hbo_stem)
 run_if("HBO + Non-STEM", hbo_nstem)
 ```
+
+# 16. Lagged Instruments
+
+## 16.1 Motivation
+
+The contemporaneous instrument `Z_visa_field` may be problematic if visa acceptance
+rates respond to current economic conditions that also affect graduate wages (reversal
+of causality). Lagging the instrument by one or more years strengthens the exclusion
+restriction: visa policy from previous years affects current wages only through its
+enduring impact on field-level international enrollment.
+
+The data cover visa years 2020-2024 and outcome years 2022-2024, so lags 1-2 have
+full coverage (all 3 outcome years), lag 3 partially covers (2023-2024), lag 4 covers
+only 2024, and lag 5 yields no observations.
+
+## 16.2 First Stage with Lagged Instruments
+
+```{r lag-firststage, results='asis'}
+# -- Build a loop over lags to run first stage + f-stat for each ----------------
+lag_labels <- c("Lag 1 (t-1)", "Lag 2 (t-2)", "Lag 3 (t-3)",
+                "Lag 4 (t-4)", "Lag 5 (t-5)")
+lag_vars   <- c("Z_visa_field_lag1", "Z_visa_field_lag2", "Z_visa_field_lag3",
+                "Z_visa_field_lag4", "Z_visa_field_lag5")
+
+fs_lag_list <- list()
+f_lag_stats <- numeric(length(lags))
+
+for (i in seq_along(lag_vars)) {
+  fml <- as.formula(paste0("share_int ~ ", lag_vars[i],
+                           " + age + age_sq + education_years + hours_worked + hours_sq + partner | duo_field"))
+  fs <- feols(fml, data = est_data, cluster = ~duo_field)
+  fs_lag_list[[lag_labels[i]]] <- fs
+  invisible(capture.output(f_lag_stats[i] <- wald(fs, lag_vars[i])$stat))
+}
+
+# F-stat comparison table
+f_lag_table <- data.frame(
+  Lag = lag_labels,
+  `F-statistic` = round(f_lag_stats, 2),
+  `N (non-missing)` = sapply(fs_lag_list, function(m) nobs(m)),
+  check.names = FALSE
+)
+
+kable(f_lag_table,
+      caption = "First-Stage F-Statistics: Lagged Visa Instruments",
+      booktabs = TRUE, digits = 2) %>%
+  kable_styling(latex_options = "hold_position")
+```
+
+## 16.3 2SLS with Lagged Instruments
+
+```{r lag-iv}
+# -- 2SLS with each lagged instrument -----------------------------------------
+iv_lag_list <- list()
+
+for (i in seq_along(lag_vars)) {
+  fml <- as.formula(paste0(
+    "log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | duo_field | ",
+    "share_int ~ ", lag_vars[i]
+  ))
+  iv <- feols(fml, data = est_data, cluster = ~duo_field)
+  iv_lag_list[[lag_labels[i]]] <- iv
+}
+```
+
+```{r lag-iv-table, results='asis'}
+# -- Side-by-side table: contemporaneous + all lagged 2SLS ---------------------
+all_iv <- c(list("Contemporaneous" = iv_visa), iv_lag_list)
+
+modelsummary(all_iv, stars = TRUE,
+             estimate = "{estimate} ({std.error}){stars}",
+             statistic = NULL,
+             gof_map = c("nobs", "r.squared"),
+             output = "data.frame") %>%
+  kable(booktabs = TRUE, digits = 4,
+        caption = "2SLS: Contemporaneous vs Lagged Visa Instruments") %>%
+  kable_styling(latex_options = "hold_position")
+```
+
+## 16.4 Reduced Form with Lagged Instruments
+
+```{r lag-rf}
+# -- Reduced form with each lagged instrument ----------------------------------
+rf_lag_list <- list()
+
+for (i in seq_along(lag_vars)) {
+  fml <- as.formula(paste0(
+    "log_income ~ ", lag_vars[i],
+    " + age + age_sq + education_years + hours_worked + hours_sq + partner | duo_field"
+  ))
+  rf <- feols(fml, data = est_data, cluster = ~duo_field)
+  rf_lag_list[[lag_labels[i]]] <- rf
+}
+```
+
+```{r lag-rf-table, results='asis'}
+# -- Side-by-side table: all reduced forms -------------------------------------
+all_rf <- c(list("Contemporaneous" = rf_visa), rf_lag_list)
+
+modelsummary(all_rf, stars = TRUE,
+             estimate = "{estimate} ({std.error}){stars}",
+             statistic = NULL,
+             gof_map = c("nobs", "r.squared"),
+             output = "data.frame") %>%
+  kable(booktabs = TRUE, digits = 4,
+        caption = "Reduced Form: Contemporaneous vs Lagged Instruments") %>%
+  kable_styling(latex_options = "hold_position")
+```
+
+## 16.5 Interpretation
+
+If the lagged instruments produce coefficients of similar magnitude to the
+contemporaneous instrument, this supports the exclusion restriction: the instrument
+affects wages only through its impact on international enrollment, not through
+contemporaneous labour-market shocks. A declining coefficient at longer lags would be
+consistent with mean-reversion in the visa-driven enrollment channel.
