@@ -441,12 +441,16 @@ cbs_field_map_instr <- tibble(
                      "03 Journalistiek, gedrag en maatschappij",
                      "04 Recht, administratie, handel en za…",
                      "05 Wiskunde, natuurwetenschappen",
+                     "06 Informatica",
                      "07 Techniek, industrie en bouwkunde",
                      "08 Landbouw, diergeneeskunde en -verz...",
-                     "09 Gezondheidszorg en welzijn"),
+                     "09 Gezondheidszorg en welzijn",
+                     "10 Dienstverlening",
+                     "Onderwijsrichting onbekend"),
   duo_field = c("onderwijs", "taal en cultuur", "gedrag en maatschappij",
-                "recht_economie", "natuur", "techniek",
-                "landbouw en natuurlijke omgeving", "gezondheidszorg")
+                "recht_economie", "natuur", "techniek", "techniek",
+                "landbouw en natuurlijke omgeving", "gezondheidszorg",
+                "sectoroverstijgend", "sectoroverstijgend")
 )
 
 # -- Compute nationality shares per field-year ----------------------------------
