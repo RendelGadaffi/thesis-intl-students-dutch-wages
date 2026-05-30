@@ -154,7 +154,10 @@ for (i in seq_along(visa_files)) {
   if (nrow(nl) > 0) visa_list[[i]] <- nl
 }
 
-Consulates <- bind_rows(visa_list)
+Consulates <- bind_rows(visa_list) %>%
+  # Average across consulates within each country (e.g. US has DC + NY + Chicago)
+  group_by(country, year) %>%
+  summarise(acceptance_rate = mean(acceptance_rate, na.rm = TRUE), .groups = "drop")
 ```
 
 # 3. Process DUO -> Field-Level International Share
