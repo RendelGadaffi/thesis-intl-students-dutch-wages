@@ -1308,14 +1308,34 @@ cat("nomem_encr type in edu_raw:", class(edu_raw$nomem_encr)[1], "\n")
 cat("survey_year type in est_data:", class(est_data$survey_year)[1], "\n")
 cat("survey_year type in edu_raw:", class(edu_raw$survey_year)[1], "\n\n")
 
-# Preview join
-before <- nrow(est_data)
+# Sample values
+cat("est_data nomem_encr sample:", paste(head(est_data$nomem_encr, 3), collapse=", "), "\n")
+cat("edu_raw nomem_encr sample:", paste(head(edu_raw$nomem_encr, 3), collapse=", "), "\n\n")
+
+# Check if issue is whitespace in est_data
+has_ws <- sum(grepl("^\\s|\\s$", est_data$nomem_encr))
+cat("nomem_encr with whitespace in est_data:", has_ws, "\n")
+
+# Direct match test: how many est_data nomem_encr exist in edu_raw?
+# (using only 2020 as a sample)
+ed20 <- unique(edu_raw$nomem_encr[edu_raw$survey_year == 2020])
+es20 <- unique(est_data$nomem_encr[est_data$survey_year == 2020])
+cat("Unique nomem in edu_raw 2020:", length(ed20), "\n")
+cat("Unique nomem in est_data 2020:", length(es20), "\n")
+cat("est_data 2020 nomem in edu_raw:", sum(es20 %in% ed20), "/", length(es20), "\n\n")
+
+# Check survey_year distribution
+cat("survey_year in est_data:\n")
+print(table(est_data$survey_year))
+cat("\nsurvey_year in edu_raw:\n")
+print(table(edu_raw$survey_year))
+
+# Actually do the merge
 est_data <- est_data %>%
   left_join(edu_raw, by = c("nomem_encr", "survey_year")) %>%
   mutate(wo_flag = coalesce(wo_flag, "Other"))
 
-cat("est_data rows after merge:", nrow(est_data), "\n")
-cat("wo_flag distribution:\n")
+cat("\nwo_flag distribution after merge:\n")
 print(table(est_data$wo_flag, useNA = "ifany"))
 
 wo  <- est_data %>% filter(wo_flag == "WO")
