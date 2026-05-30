@@ -284,6 +284,159 @@ nat_shares <- cbs_shares %>%
   arrange(desc(share))                                         # Sort by share (largest first)
 ```
 
+# 4b. Field × Nationality Matrix (for shift-share instrument)
+#
+# Use the CBS Internationals file (Herkomstland × Studierichting) to get
+# field-specific nationality composition of international students.
+# For the "Buiten-Europa" bucket, split into individual nationalities using
+# the residence permit shares from section 4.
+
+```{r field-nat-matrix}
+base <- "../../../Data/CBS Incoming Student Ethnical Makeup"
+
+# -- Read Internationals file --------------------------------------------------
+intl_field <- read_delim(file.path(base, "Internationals by gender, Fos, Senior year.csv"),
+                         delim = ";", show_col_types = FALSE) %>%
+  clean_names() %>%
+  mutate(
+    count = as.numeric(str_trim(totaal_ingeschrevenen_aantal)),
+    year = as.integer(str_sub(perioden, 1, 4))
+  ) %>%
+  # Aggregate across gender and onderwijssoort -> (studierichting, herkomstland, year)
+  filter(!is.na(count), count > 0) %>%
+  group_by(studierichting, herkomstland, year) %>%
+  summarise(count = sum(count, na.rm = TRUE), .groups = "drop")
+
+# -- Map CBS Herkomstland to English country_std used in visa data --------------
+# Keep the line count from each origin group, then split Buiten-Europa.
+# The 5 named groups are already separate from the Buiten-Europa bucket.
+herkomst_map <- tibble(
+  herkomstland = c("Nederland",
+                   "Europa (exclusief Nederland)",
+                   "Turkije", "Marokko", "Suriname",
+                   "Nederlandse Cariben", "Indonesië",
+                   "Buiten-Europa (excl. 5 grote herkomst..."),
+  country_std = c(NA_character_,       # exclude Dutch
+                  "EUROPE",            # keep as aggregate
+                  "TURKEY", "MOROCCO", "SURINAME",
+                  "NEDERLANDSE CARIBEN", "INDONESIA",
+                  "BUITEN_EUROPA")     # to be split
+)
+
+intl_origin <- intl_field %>%
+  inner_join(herkomst_map, by = "herkomstland") %>%
+  filter(!is.na(country_std))  # drop Netherlands
+
+# -- Split Buiten-Europa using residence permit shares --------------------------
+# Non-European nationalities from the permit data that are NOT among the 5
+# named groups (Turkey, Morocco, Suriname, Dutch Caribbean, Indonesia).
+# We already have the country_std mapping in nat_shares.
+non_eu_countries <- nat_shares %>%
+  filter(!is.na(country_std)) %>%
+  # Exclude Europe, the 5 named groups, and Netherlands
+  filter(!country_std %in% c("EUROPE", "TURKEY", "MOROCCO", "SURINAME",
+                              "NEDERLANDSE CARIBEN", "INDONESIA",
+                              "NETHERLANDS", "NEDERLAND")) %>%
+  # Also exclude obvious European countries matched by the case_when
+  filter(!country_std %in% c("GERMANY", "FRANCE", "ITALY", "SPAIN", "POLAND",
+                              "ROMANIA", "BULGARIA", "GREECE", "PORTUGAL",
+                              "HUNGARY", "LITHUANIA", "BELGIUM",
+                              "UNITED KINGDOM", "SWITZERLAND", "SWEDEN",
+                              "NORWAY", "DENMARK", "FINLAND", "AUSTRIA",
+                              "IRELAND", "CZECH REPUBLIC", "SLOVAKIA",
+                              "SLOVENIA", "CROATIA", "ESTONIA", "LATVIA",
+                              "LUXEMBOURG", "MALTA", "CYPRUS", "ICELAND",
+                              "LIECHTENSTEIN", "RUSSIA", "UKRAINE")) %>%
+  # Re-normalize shares to sum to 1 within this non-EU group
+  mutate(share_non_eu = share / sum(share)) %>%
+  select(country_std, share_non_eu)
+
+# For each (studierichting, year), split the Buiten-Europa count
+# across non-EU countries proportional to their permit share
+bu_count <- intl_origin %>%
+  filter(country_std == "BUITEN_EUROPA") %>%
+  select(studierichting, year, bu_count = count)
+
+bu_split <- bu_count %>%
+  cross_join(non_eu_countries) %>%
+  mutate(count = bu_count * share_non_eu) %>%
+  select(studierichting, year, country_std, count)
+
+# -- Combine all origin groups --------------------------------------------------
+intl_detailed <- intl_origin %>%
+  filter(country_std != "BUITEN_EUROPA") %>%
+  bind_rows(bu_split)
+
+# -- Map CBS Studierichting to DUO field names ----------------------------------
+# For the instrument, aggregate CBS field "04" maps to both recht AND economie
+# (the Internationals file doesn't have 041/042 sub-fields).
+cbs_field_map_instr <- tibble(
+  studierichting = c("01 Onderwijs",
+                     "02 Vormgeving, kunst, talen en gesch... ",
+                     "03 Journalistiek, gedrag en maatschappij",
+                     "04 Recht, administratie, handel en za…",
+                     "05 Wiskunde, natuurwetenschappen",
+                     "07 Techniek, industrie en bouwkunde",
+                     "08 Landbouw, diergeneeskunde en -verz...",
+                     "09 Gezondheidszorg en welzijn"),
+  duo_field = c("onderwijs", "taal en cultuur", "gedrag en maatschappij",
+                "recht_economie", "natuur", "techniek",
+                "landbouw en natuurlijke omgeving", "gezondheidszorg")
+)
+
+# -- Compute nationality shares per field-year ----------------------------------
+# Baseline year = earliest year in data (2011)
+baseline_year <- min(intl_detailed$year)
+
+field_nat_shares <- intl_detailed %>%
+  inner_join(cbs_field_map_instr, by = "studierichting") %>%
+  group_by(duo_field, year, country_std) %>%
+  summarise(count = sum(count, na.rm = TRUE), .groups = "drop") %>%
+  group_by(duo_field, year) %>%
+  mutate(share_in_field = count / sum(count)) %>%
+  ungroup()
+
+# Baseline nationality shares per field (time-invariant, from earliest year)
+field_nat_bl <- field_nat_shares %>%
+  filter(year == baseline_year) %>%
+  select(duo_field, country_std, share_jf = share_in_field)
+
+# -- Construct field-specific instrument: Z_ft = sum_j(share_jf × accept_rate_jt)
+Z_visa_field_year <- field_nat_bl %>%
+  inner_join(Consulates, by = c("country_std" = "country")) %>%
+  filter(!is.na(acceptance_rate), !is.na(share_jf)) %>%
+  group_by(duo_field, year) %>%
+  summarise(Z_visa_field = sum(share_jf * acceptance_rate, na.rm = TRUE),
+            .groups = "drop")
+
+# Expand recht_economie to both recht and economie for the LISS_panel merge
+Z_visa_field_year <- Z_visa_field_year %>%
+  filter(duo_field != "recht_economie") %>%
+  bind_rows(
+    Z_visa_field_year %>%
+      filter(duo_field == "recht_economie") %>%
+      mutate(duo_field = "recht"),
+    Z_visa_field_year %>%
+      filter(duo_field == "recht_economie") %>%
+      mutate(duo_field = "economie")
+  )
+
+# -- Construct field-specific Z_youth (low-trade countries only) ---------------
+low_trade <- c("CHINA", "INDIA", "INDONESIA", "RUSSIA", "BRAZIL", "MEXICO", "JAPAN", "SOUTH KOREA")
+
+# Re-normalise baseline nationality shares within low-trade countries
+# so we only use those nationalities' composition per field
+field_nat_lt <- field_nat_bl %>%
+  filter(country_std %in% low_trade) %>%
+  group_by(duo_field) %>%
+  mutate(share_lt = share_jf / sum(share_jf)) %>%
+  ungroup()
+
+# Join with youth unemployment data (downloaded in section 5.3)
+# Note: Z_youth_field_year is created here but the WDI download happens in
+# section 5.3, so the join is done in merge-all instead.
+```
+
 # 5. Construct Instruments
 
 ## 5.1 Nationality Name Mapping
@@ -695,26 +848,27 @@ LISS_panel <- work_all %>%
 # 7. Merge All Data
 
 ```{r merge-all}
-# -- Baseline international share per field (earliest available year) ----------
-# Used as the time-invariant "share" weight in the shift-share construction.
-baseline <- field_shares %>% filter(year == min(year)) %>% select(onderdeel, bl_share = share_int)
-
 # -- Build the final estimation dataset ---------------------------------------
 est_data <- LISS_panel %>%
   # Merge field-level international share (endogenous variable)
   left_join(field_shares, by = c("duo_field" = "onderdeel", "survey_year" = "year")) %>%
-  # Merge the two year-level instruments
-  left_join(Z_visa_year, by = c("survey_year" = "year")) %>%
-  left_join(Z_youth_year, by = c("survey_year" = "year")) %>%
-  # Merge baseline share (for shift-share interaction)
-  left_join(baseline, by = c("duo_field" = "onderdeel")) %>%
-  mutate(
-    # Shift-share interaction: instrument x baseline share -> field-specific exposure
-    Z_visa_field = Z_visa * bl_share,
-    Z_youth_field = Z_youth * bl_share
-  ) %>%
+  # Merge field-specific instruments (Z_visa from nationality matrix)
+  left_join(Z_visa_field_year, by = c("duo_field", "survey_year" = "year"))
+
+# Compute Z_youth per field-year from WDI data + field-specific low-trade shares
+Z_youth_field_year <- wdi_data %>%
+  filter(country_std %in% low_trade) %>%
+  inner_join(field_nat_lt, by = "country_std") %>%
+  group_by(duo_field, year) %>%
+  summarise(Z_youth_field = sum(share_lt * youth_unemp, na.rm = TRUE), .groups = "drop") %>%
+  # Normalize Z_youth_field to [0,1] so it's on the same scale as other variables
+  mutate(Z_youth_field = (Z_youth_field - min(Z_youth_field, na.rm = TRUE)) /
+                          (max(Z_youth_field, na.rm = TRUE) - min(Z_youth_field, na.rm = TRUE)))
+
+est_data <- est_data %>%
+  left_join(Z_youth_field_year, by = c("duo_field", "survey_year" = "year")) %>%
   # Drop any row missing a key variable (complete-case analysis)
-  filter(!is.na(share_int), !is.na(Z_visa_field), !is.na(log_income),
+  filter(!is.na(share_int), !is.na(Z_visa_field), !is.na(Z_youth_field), !is.na(log_income),
          !is.na(education_years), !is.na(hours_worked), !is.na(partner))
 
 # -- Enrollment instrument (conditional --- uncomment when DUO data exists) --
@@ -1191,7 +1345,7 @@ kable(fstat_table,
 # -- Final Sargan test result with interpretation -----------------------------
 cat("**Final diagnostic --- Sargan overidentification test:**\n",
     "The Visa and Youth instruments are jointly tested for validity.\n",
-    "Note: these instruments share the same baseline-share weights (bl_share),\n",
+    "Note: these instruments now use field-specific nationality shares from the",
     "yielding a pairwise correlation of r ~ 0.985. This near-collinearity reduces\n",
     "the power of overidentification tests.\n\n",
     "Sargan test p-value:",
