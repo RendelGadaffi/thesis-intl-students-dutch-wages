@@ -491,26 +491,6 @@ Z_visa_field_year <- Z_visa_field_year %>%
   )
 ```
 
-# -- Build lagged instruments (1-5 years) ---------------------------------------
-# For each lag L, shift the visa year forward: Z_visa at year (t-L) becomes
-# the instrument for observations in year t. Only lags with available visa
-# data will produce non-NA values (2020-2024 visa data -> lags 1-2 full,
-# lag 3 partial for 2023-2024, lag 4 only for 2024, lag 5 no coverage).
-lags <- 1:5
-Z_visa_field_lag <- Z_visa_field_year %>%
-  mutate(year_base = year)  # preserve the original year
-
-for (L in lags) {
-  col_name <- paste0("Z_visa_field_lag", L)
-  lag_df <- Z_visa_field_lag %>%
-    filter(year + L <= max(year)) %>%  # only keep visa years that exist
-    mutate(year = year + L) %>%
-    select(duo_field, year, Z = Z_visa_field)
-  names(lag_df)[3] <- col_name
-  assign(col_name, lag_df)
-}
-rm(Z_visa_field_lag, lag_df, col_name)
-
 # 5. Construct Instruments
 
 ## 5.1 Nationality Name Mapping
@@ -811,13 +791,7 @@ est_data <- LISS_panel %>%
   # Merge field-level international share (endogenous variable)
   left_join(field_shares, by = c("duo_field" = "onderdeel", "survey_year" = "year")) %>%
   # Merge field-specific instruments (Z_visa from nationality matrix)
-  left_join(Z_visa_field_year, by = c("duo_field", "survey_year" = "year")) %>%
-  # Merge lagged instruments (will produce NAs for lags with no visa data)
-  left_join(Z_visa_field_lag1, by = c("duo_field", "survey_year" = "year")) %>%
-  left_join(Z_visa_field_lag2, by = c("duo_field", "survey_year" = "year")) %>%
-  left_join(Z_visa_field_lag3, by = c("duo_field", "survey_year" = "year")) %>%
-  left_join(Z_visa_field_lag4, by = c("duo_field", "survey_year" = "year")) %>%
-  left_join(Z_visa_field_lag5, by = c("duo_field", "survey_year" = "year"))
+  left_join(Z_visa_field_year, by = c("duo_field", "survey_year" = "year"))
 
 est_data <- est_data %>%
   # Drop any row missing a key variable (complete-case analysis)
@@ -1448,10 +1422,33 @@ The data cover visa years 2020-2024 and outcome years 2022-2024, so lags 1-2 hav
 full coverage (all 3 outcome years), lag 3 partially covers (2023-2024), lag 4 covers
 only 2024, and lag 5 yields no observations.
 
-## 16.2 First Stage with Lagged Instruments
+## 16.2 Build Lagged Instruments
+
+```{r lag-build}
+# -- Construct lagged instruments from existing Z_visa_field_year --------------
+# Shift Z_visa_field_year forward by L years so that the instrument from year
+# (t-L) is available for outcome-year t observations.
+lags <- 1:5
+est_data_lag <- est_data  # work on a copy, don't touch original
+
+for (L in lags) {
+  col_lag <- paste0("Z_visa_field_lag", L)
+  
+  # Shift years: visa year + L -> outcome year
+  lag_df <- Z_visa_field_year
+  lag_df$year <- lag_df$year + L
+  names(lag_df)[3] <- col_lag
+  
+  # Merge into working dataset (will produce NAs for years with no visa match)
+  est_data_lag <- est_data_lag %>%
+    left_join(lag_df, by = c("duo_field", "survey_year" = "year"))
+}
+rm(lag_df, col_lag)
+```
+
+## 16.3 First Stage with Lagged Instruments
 
 ```{r lag-firststage, results='asis'}
-# -- Build a loop over lags to run first stage + f-stat for each ----------------
 lag_labels <- c("Lag 1 (t-1)", "Lag 2 (t-2)", "Lag 3 (t-3)",
                 "Lag 4 (t-4)", "Lag 5 (t-5)")
 lag_vars   <- c("Z_visa_field_lag1", "Z_visa_field_lag2", "Z_visa_field_lag3",
@@ -1463,16 +1460,15 @@ f_lag_stats <- numeric(length(lags))
 for (i in seq_along(lag_vars)) {
   fml <- as.formula(paste0("share_int ~ ", lag_vars[i],
                            " + age + age_sq + education_years + hours_worked + hours_sq + partner | duo_field"))
-  fs <- feols(fml, data = est_data, cluster = ~duo_field)
+  fs <- feols(fml, data = est_data_lag, cluster = ~duo_field)
   fs_lag_list[[lag_labels[i]]] <- fs
   invisible(capture.output(f_lag_stats[i] <- wald(fs, lag_vars[i])$stat))
 }
 
-# F-stat comparison table
 f_lag_table <- data.frame(
   Lag = lag_labels,
   `F-statistic` = round(f_lag_stats, 2),
-  `N (non-missing)` = sapply(fs_lag_list, function(m) nobs(m)),
+  `N` = sapply(fs_lag_list, function(m) nobs(m)),
   check.names = FALSE
 )
 
@@ -1482,10 +1478,9 @@ kable(f_lag_table,
   kable_styling(latex_options = "hold_position")
 ```
 
-## 16.3 2SLS with Lagged Instruments
+## 16.4 2SLS with Lagged Instruments
 
 ```{r lag-iv}
-# -- 2SLS with each lagged instrument -----------------------------------------
 iv_lag_list <- list()
 
 for (i in seq_along(lag_vars)) {
@@ -1493,13 +1488,12 @@ for (i in seq_along(lag_vars)) {
     "log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | duo_field | ",
     "share_int ~ ", lag_vars[i]
   ))
-  iv <- feols(fml, data = est_data, cluster = ~duo_field)
+  iv <- feols(fml, data = est_data_lag, cluster = ~duo_field)
   iv_lag_list[[lag_labels[i]]] <- iv
 }
 ```
 
 ```{r lag-iv-table, results='asis'}
-# -- Side-by-side table: contemporaneous + all lagged 2SLS ---------------------
 all_iv <- c(list("Contemporaneous" = iv_visa), iv_lag_list)
 
 modelsummary(all_iv, stars = TRUE,
@@ -1512,10 +1506,9 @@ modelsummary(all_iv, stars = TRUE,
   kable_styling(latex_options = "hold_position")
 ```
 
-## 16.4 Reduced Form with Lagged Instruments
+## 16.5 Reduced Form with Lagged Instruments
 
 ```{r lag-rf}
-# -- Reduced form with each lagged instrument ----------------------------------
 rf_lag_list <- list()
 
 for (i in seq_along(lag_vars)) {
@@ -1523,13 +1516,12 @@ for (i in seq_along(lag_vars)) {
     "log_income ~ ", lag_vars[i],
     " + age + age_sq + education_years + hours_worked + hours_sq + partner | duo_field"
   ))
-  rf <- feols(fml, data = est_data, cluster = ~duo_field)
+  rf <- feols(fml, data = est_data_lag, cluster = ~duo_field)
   rf_lag_list[[lag_labels[i]]] <- rf
 }
 ```
 
 ```{r lag-rf-table, results='asis'}
-# -- Side-by-side table: all reduced forms -------------------------------------
 all_rf <- c(list("Contemporaneous" = rf_visa), rf_lag_list)
 
 modelsummary(all_rf, stars = TRUE,
@@ -1542,7 +1534,7 @@ modelsummary(all_rf, stars = TRUE,
   kable_styling(latex_options = "hold_position")
 ```
 
-## 16.5 Interpretation
+## 16.6 Interpretation
 
 If the lagged instruments produce coefficients of similar magnitude to the
 contemporaneous instrument, this supports the exclusion restriction: the instrument
