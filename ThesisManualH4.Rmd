@@ -1330,8 +1330,9 @@ print(table(est_data$survey_year))
 cat("\nsurvey_year in edu_raw:\n")
 print(table(edu_raw$survey_year))
 
-# Actually do the merge
+# Actually do the merge — coerce survey_year to same type first
 est_data <- est_data %>%
+  mutate(survey_year = as.integer(survey_year)) %>%
   left_join(edu_raw, by = c("nomem_encr", "survey_year")) %>%
   mutate(wo_flag = coalesce(wo_flag, "Other"))
 
