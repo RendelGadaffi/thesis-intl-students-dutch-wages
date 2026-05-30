@@ -205,7 +205,8 @@ prog_class <- tibble(opleidingsnaam = unique(DUO_long$opleidingsnaam)) %>%
     dutch_count = map_int(opleidingsnaam, ~ {
       words <- tolower(.) %>% str_split("[^a-z]") %>% unlist()
       words <- words[nchar(words) > 1]
-      sum(words %in% dutch_kw)
+      if (length(words) == 0) return(0)
+      sum(hunspell::hunspell_check(words, dict = "nl_NL"))
     }),
     is_international = english_count > dutch_count
   )
