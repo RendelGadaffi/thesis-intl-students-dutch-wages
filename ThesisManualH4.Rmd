@@ -185,10 +185,11 @@ english_kw <- c("studies", "science", "engineering", "management", "economics", 
                 "international", "global", "european", "research", "development", "technology",
                 "policy", "law", "health", "sustainability", "innovation", "governance",
                 "leadership", "psychology", "sociology", "anthropology", "communication",
-                "and", "the", "in", "of", "for", "data", "design", "media",
+                "and", "the", "of", "for", "data", "design", "media",
                 "geography", "entrepreneurship", "cultural", "human", "theology",
                 "neuroscience", "informatics", "mathematics", "physics", "chemistry",
-                "biology", "history", "philosophy", "linguistics", "literature")
+                "biology", "history", "philosophy", "linguistics", "literature",
+                "artificial", "intelligence", "spatial", "planning", "biomedical", "molecular", "information", "natural")
 
 dutch_kw <- c("wetenschappen", "kunde", "onderwijs", "bestuur", "gedrag", "maatschappij",
               "geneeskunde", "tandheelkunde", "rechten", "economie", "bedrijfskunde",
