@@ -44,30 +44,30 @@ p_load(rt)
 # column names (e.g. spaces to dots).
 
 # 2020 wave: comma-separated (sep = "," is default), 1.0p = version 1.0 public
-LISS2020WS <- read.csv("../../Data/LISS Work and Schooling/Extracted/cw20m_EN_1.0p.csv", check.names = FALSE)
+LISS2020WS <- read.csv("../../../Data/LISS Work and Schooling/Extracted/cw20m_EN_1.0p.csv", check.names = FALSE)
 # 2021 wave: also comma-separated
-LISS2021WS <- read.csv("../../Data/LISS Work and Schooling/Extracted/cw21n_EN_1.0p.csv", check.names = FALSE)
+LISS2021WS <- read.csv("../../../Data/LISS Work and Schooling/Extracted/cw21n_EN_1.0p.csv", check.names = FALSE)
 # 2022 wave: semicolon-separated (sep = ";")
-LISS2022WS <- read.csv("../../Data/LISS Work and Schooling/Extracted/cw22o_EN_1.0p.csv", sep = ";", check.names = FALSE)
+LISS2022WS <- read.csv("../../../Data/LISS Work and Schooling/Extracted/cw22o_EN_1.0p.csv", sep = ";", check.names = FALSE)
 # 2023 wave: semicolon-separated
-LISS2023WS <- read.csv("../../Data/LISS Work and Schooling/Extracted/cw23p_EN_2.0p.csv", sep = ";", check.names = FALSE)
+LISS2023WS <- read.csv("../../../Data/LISS Work and Schooling/Extracted/cw23p_EN_2.0p.csv", sep = ";", check.names = FALSE)
 # 2024 wave: semicolon-separated
-LISS2024WS <- read.csv("../../Data/LISS Work and Schooling/Extracted/cw24q_EN_1.0p.csv", sep = ";", check.names = FALSE)
+LISS2024WS <- read.csv("../../../Data/LISS Work and Schooling/Extracted/cw24q_EN_1.0p.csv", sep = ";", check.names = FALSE)
 
 # ── LISS Economic Situation / Income module (2020–2024) ───────────────────────
 # The "Economic Situation: Income" module records gross monthly wages, partner status,
 # and other income-related variables. Same sep pattern as the Work & Schooling module.
 
 # 2020 income data: comma-separated
-LISS2020ES <- read.csv("../../Data/LISS Economic Situation, Income/Extracted/ci20m_EN_1.0p.csv", check.names = FALSE)
+LISS2020ES <- read.csv("../../../Data/LISS Economic Situation, Income/Extracted/ci20m_EN_1.0p.csv", check.names = FALSE)
 # 2021 income data: comma-separated
-LISS2021ES <- read.csv("../../Data/LISS Economic Situation, Income/Extracted/ci21n_EN_1.0p.csv", check.names = FALSE)
+LISS2021ES <- read.csv("../../../Data/LISS Economic Situation, Income/Extracted/ci21n_EN_1.0p.csv", check.names = FALSE)
 # 2022 income data: semicolon-separated
-LISS2022ES <- read.csv("../../Data/LISS Economic Situation, Income/Extracted/ci22o_EN_1.0p.csv", sep = ";", check.names = FALSE)
+LISS2022ES <- read.csv("../../../Data/LISS Economic Situation, Income/Extracted/ci22o_EN_1.0p.csv", sep = ";", check.names = FALSE)
 # 2023 income data: semicolon-separated
-LISS2023ES <- read.csv("../../Data/LISS Economic Situation, Income/Extracted/ci23p_EN_1.0p.csv", sep = ";", check.names = FALSE)
+LISS2023ES <- read.csv("../../../Data/LISS Economic Situation, Income/Extracted/ci23p_EN_1.0p.csv", sep = ";", check.names = FALSE)
 # 2024 income data: semicolon-separated
-LISS2024ES <- read.csv("../../Data/LISS Economic Situation, Income/Extracted/ci24q_EN_1.0p.csv", sep = ";", check.names = FALSE)
+LISS2024ES <- read.csv("../../../Data/LISS Economic Situation, Income/Extracted/ci24q_EN_1.0p.csv", sep = ";", check.names = FALSE)
 ```
 
 ## 1.2 IND Visa
@@ -79,11 +79,11 @@ LISS2024ES <- read.csv("../../Data/LISS Economic Situation, Income/Extracted/ci2
 # a worksheet named "Data for consulates" containing acceptance/rejection rates
 # by applicant nationality.
 visa_files <- c(
-  "../../Data/IND Short-Term Schengen Visa Acceptance Rates/Visa-statistics-for-consulates-2020_en.xlsx",
-  "../../Data/IND Short-Term Schengen Visa Acceptance Rates/2021-consulates-schengen-visa-stats.xlsx",
-  "../../Data/IND Short-Term Schengen Visa Acceptance Rates/Visa statistics for consulates in 2022_en.xlsx",
-  "../../Data/IND Short-Term Schengen Visa Acceptance Rates/2023-schengen-visa-statistics-consulates_en.xlsx",
-  "../../Data/IND Short-Term Schengen Visa Acceptance Rates/2024-schengen-visa-statistics-consulates_en.xlsx"
+  "../../../Data/IND Short-Term Schengen Visa Acceptance Rates/Visa-statistics-for-consulates-2020_en.xlsx",
+  "../../../Data/IND Short-Term Schengen Visa Acceptance Rates/2021-consulates-schengen-visa-stats.xlsx",
+  "../../../Data/IND Short-Term Schengen Visa Acceptance Rates/Visa statistics for consulates in 2022_en.xlsx",
+  "../../../Data/IND Short-Term Schengen Visa Acceptance Rates/2023-schengen-visa-statistics-consulates_en.xlsx",
+  "../../../Data/IND Short-Term Schengen Visa Acceptance Rates/2024-schengen-visa-statistics-consulates_en.xlsx"
 )
 ```
 
@@ -97,11 +97,11 @@ visa_files <- c(
 # A third file records institution addresses/locations for geographic matching.
 
 # University-level (WO) graduates: semicolon-separated CSV
-GradsUni <- read.csv("../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/Graduates by Gender, Institution, Field of study, University level.csv", sep = ";")
+GradsUni <- read.csv("../../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/Graduates by Gender, Institution, Field of study, University level.csv", sep = ";")
 # Professional-level (HBO) graduates: semicolon-separated CSV
-GradsProf <- read.csv("../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/Graduates by Gender, Institution, Field of study, Professional level.csv", sep = ";")
+GradsProf <- read.csv("../../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/Graduates by Gender, Institution, Field of study, Professional level.csv", sep = ";")
 # Institution address metadata: used to geolocate institutions to provinces/cities
-InstitutionAddys <- read.csv("../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/Higher education institutes location.csv", sep = ";")
+InstitutionAddys <- read.csv("../../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/Higher education institutes location.csv", sep = ";")
 ```
 
 ## 1.4 CBS Nationality Data
@@ -112,7 +112,7 @@ InstitutionAddys <- read.csv("../../Data/DUO Graduates by Gender, Institution, F
 # permits (verblijfsvergunningen voor bepaalde tijd) by nationality and year.
 # This data is used to construct the baseline nationality shares for the shift-share
 # instrument. The file name includes a timestamp from when it was downloaded.
-EthnicalMakeup <- read.csv("../../Data/CBS Incoming Student Ethnical Makeup/Verblijfsvergunningen_voor_bepaalde_tijd_19052026_175309.csv", sep = ";")
+EthnicalMakeup <- read.csv("../../../Data/CBS Incoming Student Ethnical Makeup/Verblijfsvergunningen_voor_bepaalde_tijd_19052026_175309.csv", sep = ";")
 ```
 
 # 2. Process IND Visa
@@ -392,7 +392,7 @@ policy. Pre-period non-EU enrollment shares × aggregate non-EU visa rates give
 a institution-level shock that rolls up to fields via DUO's graduate composition.
 
 **Data needed (request from DUO via supervisor):**
-A CSV saved to `../../Data/DUO Non-EU Enrollment by Institution/`:
+A CSV saved to `../../../Data/DUO Non-EU Enrollment by Institution/`:
 
 ```
 instellingscode,instellingsnaam,year,total_students,non_eu_students
@@ -409,7 +409,7 @@ time-varying enrollment is not essential for the shift-share design.
 #
 # (1) Load enrollment data
 # enroll <- read.csv(
-#   "../../Data/DUO Non-EU Enrollment by Institution/non_eu_enrollment.csv",
+#   "../../../Data/DUO Non-EU Enrollment by Institution/non_eu_enrollment.csv",
 #   sep = ";", check.names = FALSE
 # ) %>% clean_names()
 #
