@@ -497,13 +497,19 @@ Z_visa_field_year <- Z_visa_field_year %>%
 # data will produce non-NA values (2020-2024 visa data -> lags 1-2 full,
 # lag 3 partial for 2023-2024, lag 4 only for 2024, lag 5 no coverage).
 lags <- 1:5
+Z_visa_field_lag <- Z_visa_field_year %>%
+  mutate(year_base = year)  # preserve the original year
+
 for (L in lags) {
   col_name <- paste0("Z_visa_field_lag", L)
-  lag_df <- Z_visa_field_year %>%
+  lag_df <- Z_visa_field_lag %>%
+    filter(year + L <= max(year)) %>%  # only keep visa years that exist
     mutate(year = year + L) %>%
-    select(duo_field, year, !!sym(col_name) := Z_visa_field)
+    select(duo_field, year, Z = Z_visa_field)
+  names(lag_df)[3] <- col_name
   assign(col_name, lag_df)
 }
+rm(Z_visa_field_lag, lag_df, col_name)
 
 # 5. Construct Instruments
 
