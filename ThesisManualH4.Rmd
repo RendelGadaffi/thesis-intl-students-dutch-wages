@@ -899,15 +899,13 @@ est_data %>%
 ```{r het-firststage}
 # -- STEM first stage ---------------------------------------------------------
 fs_stem <- feols(share_int ~ Z_visa_field + age + age_sq +
-                   education_years + hours_worked + hours_sq + partner +
-                   | survey_year,
+                   education_years + hours_worked + hours_sq + partner | survey_year,
                  data = est_data %>% filter(stem == TRUE), cluster = ~duo_field)
 invisible(capture.output(f_stem <- wald(fs_stem, "Z_visa_field")$stat))
 
 # -- Non-STEM first stage -----------------------------------------------------
 fs_nonstem <- feols(share_int ~ Z_visa_field + age + age_sq +
-                      education_years + hours_worked + hours_sq + partner +
-                      | survey_year,
+                      education_years + hours_worked + hours_sq + partner | survey_year,
                     data = est_data %>% filter(stem == FALSE), cluster = ~duo_field)
 invisible(capture.output(f_nonstem <- wald(fs_nonstem, "Z_visa_field")$stat))
 
