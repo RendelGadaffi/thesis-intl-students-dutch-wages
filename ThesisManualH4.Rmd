@@ -448,21 +448,6 @@ Z_visa_field_year <- Z_visa_field_year %>%
       filter(duo_field == "recht_economie") %>%
       mutate(duo_field = "economie")
   )
-
-# -- Construct field-specific Z_youth (low-trade countries only) ---------------
-low_trade <- c("CHINA", "INDIA", "INDONESIA", "RUSSIA", "BRAZIL", "MEXICO", "JAPAN", "SOUTH KOREA")
-
-# Re-normalise baseline nationality shares within low-trade countries
-# so we only use those nationalities' composition per field
-field_nat_lt <- field_nat_bl %>%
-  filter(country_std %in% low_trade) %>%
-  group_by(duo_field) %>%
-  mutate(share_lt = share_jf / sum(share_jf)) %>%
-  ungroup()
-
-# Join with youth unemployment data (downloaded in section 5.3)
-# Note: Z_youth_field_year is created here but the WDI download happens in
-# section 5.3, so the join is done in merge-all instead.
 ```
 
 # 5. Construct Instruments
@@ -521,64 +506,7 @@ Z_visa_year <- visa_merged %>%
   summarise(Z_visa = sum(share * acceptance_rate, na.rm = TRUE), .groups = "drop")
 ```
 
-## 5.3 Instrument 2: Youth Unemployment (low-trade countries only)
-
-```{r instr-youth}
-# -- Second instrument: youth unemployment in non-trade-linked origin countries -
-# Exclusion restriction argument: youth unemployment in these countries affects
-# Dutch graduate wages ONLY through the student-mobility channel (not through trade),
-# because the Netherlands has negligible trade exposure to these economies.
-low_trade <- c("CHINA", "INDIA", "INDONESIA", "RUSSIA", "BRAZIL", "MEXICO", "JAPAN", "SOUTH KOREA")
-
-# -- Map standardised country names -> World Bank WDI country codes -------------
-# WDI (World Development Indicators) uses 2-letter ISO codes for API queries.
-wdi_codes <- c("CHINA" = "CN", "INDIA" = "IN", "INDONESIA" = "ID", "RUSSIA" = "RU",
-               "BRAZIL" = "BR", "MEXICO" = "MX", "JAPAN" = "JP", "SOUTH KOREA" = "KR",
-               "TURKEY" = "TR", "UNITED STATES" = "US", "UNITED KINGDOM" = "GB",
-               "GERMANY" = "DE", "FRANCE" = "FR", "ITALY" = "IT", "SPAIN" = "ES",
-               "POLAND" = "PL", "ROMANIA" = "RO", "BULGARIA" = "BG", "GREECE" = "GR",
-               "PORTUGAL" = "PT", "HUNGARY" = "HU", "LITHUANIA" = "LT", "BELGIUM" = "BE")
-
-# -- Download youth unemployment (ages 15-24) from the World Bank API ----------
-# Indicator SL.UEM.1524.ZS = "Unemployment, youth total (% of total labor force ages 15-24)"
-wdi_data <- WDI(indicator = "SL.UEM.1524.ZS",
-                country = wdi_codes, start = 2010, end = 2024) %>%
-  as_tibble() %>%
-  rename(youth_unemp = SL.UEM.1524.ZS) %>%   # Rename to a shorter readable name
-  filter(!is.na(youth_unemp))                  # Drop any years with missing data
-
-# -- Map WDI codes back to our standardised country names ---------------------
-country_rev <- setNames(names(wdi_codes), wdi_codes)  # Reverse lookup: "CN" -> "CHINA"
-wdi_data <- wdi_data %>%
-  mutate(country_std = country_rev[iso2c]) %>%         # Add the standardised name column
-  filter(!is.na(country_std))                           # Drop if no match found
-
-# -- Re-normalise shares to SUM TO 1 within the low-trade subset --------------
-# Only low-trade countries enter this instrument, so we need conditional shares
-nat_lowtrade <- nat_shares %>% filter(country_std %in% low_trade) %>%
-  mutate(share_lt = share / sum(share))
-
-# -- Construct Z_youth: weighted average youth unemployment --------------------
-#   Z_youth[t] = sum_over_low_trade( share_lt_c x youth_unemp_c,t )
-# The share_lt weights are time-invariant (2010), youth_unemp varies by year.
-Z_youth_year <- wdi_data %>%
-  filter(country_std %in% low_trade) %>%
-  inner_join(nat_lowtrade, by = "country_std") %>%
-  group_by(year) %>%
-  summarise(Z_youth = sum(share_lt * youth_unemp, na.rm = TRUE), .groups = "drop") %>%
-  # Normalize Z_youth to [0,1] so it's on the same scale as other variables
-  mutate(Z_youth = (Z_youth - min(Z_youth, na.rm = TRUE)) /
-                   (max(Z_youth, na.rm = TRUE) - min(Z_youth, na.rm = TRUE)))
-```
-
-## 5.4 Instrument 3: University-Level Non-EU Enrollment x Visa Rate (Pending Data)
-
-**Rationale:** Universities with more non-EU students are more exposed to Schengen visa
-policy. Pre-period non-EU enrollment shares x aggregate non-EU visa rates give
-a institution-level shock that rolls up to fields via DUO's graduate composition.
-
-**Data needed (request from DUO via supervisor):**
-A CSV saved to `../../../Data/DUO Non-EU Enrollment by Institution/`:
+# 6. LISS Field-of-Study Mapping
 
 ```
 instellingscode,instellingsnaam,year,total_students,non_eu_students
@@ -883,20 +811,9 @@ est_data <- LISS_panel %>%
   # Merge field-specific instruments (Z_visa from nationality matrix)
   left_join(Z_visa_field_year, by = c("duo_field", "survey_year" = "year"))
 
-# Compute Z_youth per field-year from WDI data + field-specific low-trade shares
-Z_youth_field_year <- wdi_data %>%
-  filter(country_std %in% low_trade) %>%
-  inner_join(field_nat_lt, by = "country_std") %>%
-  group_by(duo_field, year) %>%
-  summarise(Z_youth_field = sum(share_lt * youth_unemp, na.rm = TRUE), .groups = "drop") %>%
-  # Normalize Z_youth_field to [0,1] so it's on the same scale as other variables
-  mutate(Z_youth_field = (Z_youth_field - min(Z_youth_field, na.rm = TRUE)) /
-                          (max(Z_youth_field, na.rm = TRUE) - min(Z_youth_field, na.rm = TRUE)))
-
 est_data <- est_data %>%
-  left_join(Z_youth_field_year, by = c("duo_field", "survey_year" = "year")) %>%
   # Drop any row missing a key variable (complete-case analysis)
-  filter(!is.na(share_int), !is.na(Z_visa_field), !is.na(Z_youth_field), !is.na(log_income),
+  filter(!is.na(share_int), !is.na(Z_visa_field), !is.na(log_income),
          !is.na(education_years), !is.na(hours_worked), !is.na(partner))
 
 # -- Enrollment instrument (conditional --- uncomment when DUO data exists) --
@@ -919,7 +836,7 @@ est_data %>%
             `Partner` = mean(partner, na.rm = TRUE),
             `Tenure` = mean(tenure_years, na.rm = TRUE),
             `Share Intl` = mean(share_int), `Share Intl (SD)` = sd(share_int),
-            `Z_visa_field` = mean(Z_visa_field, na.rm = TRUE), `Z_youth_field` = mean(Z_youth_field, na.rm = TRUE),
+            `Z_visa_field` = mean(Z_visa_field, na.rm = TRUE),
             `STEM` = mean(stem)) %>%
   # Reshape to vertical format (one statistic per row) for a cleaner table
   pivot_longer(everything(), names_to = "Statistic", values_to = "Value") %>%
@@ -956,63 +873,7 @@ cat("\n**F-stat (visa instrument):**", round(f_visa, 2),
     ifelse(f_visa > 10, "-> Strong", "-> Weak"), "\n")
 ```
 
-## 9.2 Single Instrument: Youth Unemployment (low-trade only)
-
-```{r firststage-youth, results='asis'}
-# -- First-stage regression: share_int ~ Z_youth_field + controls --------------
-fs_youth <- feols(share_int ~ Z_youth_field + age + age_sq + education_years + hours_worked + hours_sq + partner + tenure_years | survey_year,
-                  data = est_data, cluster = ~duo_field)
-
-# F-stat for the youth unemployment instrument
-invisible(capture.output(f_youth <- wald(fs_youth, "Z_youth_field")$stat))
-
-list("First Stage (Youth Unemp)" = fs_youth) %>%
-  modelsummary(stars = TRUE, gof_map = c("nobs", "r.squared"), output = "data.frame") %>%
-  kable(caption = "First Stage: Youth Unemp Instrument -> International Share", booktabs = TRUE) %>%
-  kable_styling(latex_options = "hold_position")
-cat("\n**F-stat (youth unemp instrument):**", round(f_youth, 2),
-    "(clustered across", n_distinct(est_data$duo_field), "fields)",
-    ifelse(f_youth > 10, "-> Strong", "-> Weak"), "\n")
-```
-
-## 9.3 Dual Instruments: Visa + Youth Unemployment
-
-```{r firststage-dual, results='asis'}
-# -- First-stage regression with BOTH excluded instruments ---------------------
-fs_dual <- feols(share_int ~ Z_visa_field + Z_youth_field + age + age_sq + education_years + hours_worked + hours_sq + partner + tenure_years |
-                   survey_year, data = est_data, cluster = ~duo_field)
-
-# Combined F-stat testing that BOTH instrument coefficients are jointly zero
-invisible(capture.output(f_dual <- wald(fs_dual, c("Z_visa_field", "Z_youth_field"))$stat))
-
-list("First Stage (Both Instruments)" = fs_dual) %>%
-  modelsummary(stars = TRUE, gof_map = c("nobs", "r.squared"), output = "data.frame") %>%
-  kable(caption = "First Stage: Both Instruments", booktabs = TRUE) %>%
-  kable_styling(latex_options = "hold_position")
-cat("\n**Combined F-stat (both instruments):**", round(f_dual, 2),
-    "(clustered across", n_distinct(est_data$duo_field), "fields)",
-    ifelse(f_dual > 10, "-> Strong", "-> Weak"), "\n")
-
-# -- Instrument strength summary (for thesis text) --
-cat("\n### Instrument Strength Summary\n\n",
-    "All three instrument configurations clear the Stock & Yogo (2005) F > 10 threshold:\n\n",
-    "* Visa instrument only: F = ", round(f_visa, 1), "\n",
-    "* Youth unemployment instrument only: F = ", round(f_youth, 1), "\n",
-    "* Both instruments: F = ", round(f_dual, 1), "\n\n",
-    "Weak instruments are therefore unlikely to bias the 2SLS estimates.\n\n",
-    "Note: Field fixed effects were tested but reduced the first-stage F-statistic\n",
-    "to below 10 by absorbing cross-field identifying variation. Following the\n",
-    "recommendation of Borusyak, Hull & Jaravel (2022), the preferred specification\n",
-    "omits field FE to preserve the between-field variation that drives identification.\n")
-```
-
-## 9.4 Enrollment Instrument (Conditional --- uncomment when DUO data exists)
-
-```{r firststage-enroll, eval=FALSE}
-# fs_enroll <- feols(share_int ~ Z_enroll_field + age + age_sq +
-#                      education_years + hours_worked + hours_sq +
-#                      partner + tenure_years | survey_year,
-#                    data = est_data, cluster = ~duo_field)
+# 10. Second Stage (2SLS)
 # f_enroll <- wald(fs_enroll, "Z_enroll_field")$stat
 # list("First Stage (Enrollment)" = fs_enroll) %>%
 #   modelsummary(stars = TRUE, gof_map = c("nobs", "r.squared"),
@@ -1047,67 +908,20 @@ iv_visa <- feols(log_income ~ age + age_sq + education_years + hours_worked + ho
                    share_int ~ Z_visa_field, data = est_data, cluster = ~duo_field)
 ```
 
-## 10.3 2SLS: Single Instrument (Youth Unemp, low-trade)
-
-```{r iv-youth}
-# -- 2SLS using youth unemployment as the instrument --------------------------
-iv_youth <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner + tenure_years | survey_year |
-                    share_int ~ Z_youth_field, data = est_data, cluster = ~duo_field)
-```
-
-## 10.4 2SLS: Dual Instruments (Preferred Specification)
-
-```{r iv-dual}
-# -- 2SLS using BOTH visa and youth instruments (overidentified, preferred) ----
-# Two instruments for one endogenous variable -> the model is overidentified,
-# which allows a Sargan/Hansen J test of instrument validity.
-iv_dual <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner + tenure_years | survey_year |
-                   share_int ~ Z_visa_field + Z_youth_field,
-                 data = est_data, cluster = ~duo_field)
-
-# Sargan overidentification test: H0 = both instruments are valid (uncorrelated with eps)
-# Rejection implies at least one instrument is invalid.
-sargan <- fitstat(iv_dual, "sargan")
-```
-
-## 10.5 2SLS: Enrollment x Visa Rate (Conditional)
-
-```{r iv-enroll, eval=FALSE}
-# iv_enroll <- feols(log_income ~ age + age_sq + education_years +
-#                      hours_worked + hours_sq + partner + tenure_years |
-#                      duo_field + survey_year |
-#                      share_int ~ Z_enroll_field,
-#                    data = est_data, cluster = ~duo_field)
-# sargan_enroll <- fitstat(iv_enroll, "sargan")
-```
-
 ```{r main-table, results='asis'}
-# -- Collect all 4 specifications into one named list -------------------------
-all_models <- list("OLS" = ols, "2SLS (Visa)" = iv_visa, "2SLS (Youth)" = iv_youth,
-     "2SLS (Both)" = iv_dual)
-# if (exists("iv_enroll")) all_models[["2SLS (Enroll)"]] <- iv_enroll
+# -- OLS and 2SLS side by side -------------------------------------------------
+all_models <- list("OLS" = ols, "2SLS (Visa)" = iv_visa)
 
-# -- Side-by-side regression table --------------------------------------------
-# modelsummary produces a column per model; estimate and SE shown together,
-# stars indicate significance levels.
 all_models %>%
   modelsummary(stars = TRUE, gof_map = c("nobs", "r.squared"), output = "data.frame") %>%
   kable(caption = "Effect of International Intensity on Log Income", booktabs = TRUE) %>%
   kable_styling(latex_options = "hold_position")
 
-# -- Sargan test result inline ------------------------------------------------
-cat("\n**Sargan overidentification test (H0: Youth instrument is valid, assuming Visa is valid):**\n",
-    "p =", if (!is.null(sargan$sargan$p)) round(sargan$sargan$p, 4) else "N/A",
-    if (!is.null(sargan$sargan$p) && sargan$sargan$p > 0.05) "-> Fail to reject: Youth IV passes the test" else "-> Rejected: Youth IV may be invalid",
-    "\n")
 cat("\n**Note on potential bad controls:**\n",
     "Controls for hours worked, tenure, and partner status are determined after\n",
     "field choice and may be part of the mechanism (Angrist & Pischke, 2009).\n",
     "The preferred specification includes these controls for consistency with the\n",
     "literature; robustness checks omitting them yield qualitatively similar results.\n")
-#   cat("**Sargan (Enrollment):**",
-#       round(sargan_enroll$sargan$p, 4), "\n")
-# }
 ```
 
 # 11. Reduced Form
@@ -1119,11 +933,9 @@ cat("\n**Note on potential bad controls:**\n",
 # to the 2SLS coefficient (scaled by the first-stage strength).
 rf_visa  <- feols(log_income ~ Z_visa_field + age + age_sq + education_years + hours_worked + hours_sq + partner + tenure_years | survey_year,
                   data = est_data, cluster = ~duo_field)
-rf_youth <- feols(log_income ~ Z_youth_field + age + age_sq + education_years + hours_worked + hours_sq + partner + tenure_years | survey_year,
-                  data = est_data, cluster = ~duo_field)
 
-# Side-by-side table
-list("Reduced Form (Visa)" = rf_visa, "Reduced Form (Youth)" = rf_youth) %>%
+# Table
+list("Reduced Form (Visa)" = rf_visa) %>%
   modelsummary(stars = TRUE, gof_map = c("nobs", "r.squared"), output = "data.frame") %>%
   kable(caption = "Reduced Form: Instruments -> Log Income", booktabs = TRUE) %>%
   kable_styling(latex_options = "hold_position")
@@ -1162,19 +974,19 @@ est_data %>%
 ## 12.2 First Stage by Subsample
 
 ```{r het-firststage}
-# -- STEM first stage (dual instruments) ---------------------------------------
-fs_stem <- feols(share_int ~ Z_visa_field + Z_youth_field + age + age_sq +
+# -- STEM first stage ---------------------------------------------------------
+fs_stem <- feols(share_int ~ Z_visa_field + age + age_sq +
                    education_years + hours_worked + hours_sq + partner +
                    tenure_years | survey_year,
                  data = est_data %>% filter(stem == TRUE), cluster = ~duo_field)
-invisible(capture.output(f_stem <- wald(fs_stem, c("Z_visa_field", "Z_youth_field"))$stat))
+invisible(capture.output(f_stem <- wald(fs_stem, "Z_visa_field")$stat))
 
-# -- Non-STEM first stage (dual instruments) ----------------------------------
-fs_nonstem <- feols(share_int ~ Z_visa_field + Z_youth_field + age + age_sq +
+# -- Non-STEM first stage -----------------------------------------------------
+fs_nonstem <- feols(share_int ~ Z_visa_field + age + age_sq +
                       education_years + hours_worked + hours_sq + partner +
                       tenure_years | survey_year,
                     data = est_data %>% filter(stem == FALSE), cluster = ~duo_field)
-invisible(capture.output(f_nonstem <- wald(fs_nonstem, c("Z_visa_field", "Z_youth_field"))$stat))
+invisible(capture.output(f_nonstem <- wald(fs_nonstem, "Z_visa_field")$stat))
 
 # -- Count unique fields in each subsample ------------------------------------
 n_stem <- n_distinct(est_data$duo_field[est_data$stem == TRUE])
@@ -1183,8 +995,8 @@ n_ns <- n_distinct(est_data$duo_field[est_data$stem == FALSE])
 # -- Build F-stat comparison table --------------------------------------------
 f_table <- data.frame(
   Subsample = c("Full Sample", "STEM Fields", "Non-STEM Fields"),
-  Instruments = c("Visa + Youth", "Visa + Youth", "Visa + Youth"),
-  `F-statistic` = c(round(f_dual, 1), round(f_stem, 1), round(f_nonstem, 1)),
+  Instruments = c("Visa", "Visa", "Visa"),
+  `F-statistic` = c(round(f_visa, 1), round(f_stem, 1), round(f_nonstem, 1)),
   `# Fields` = c(n_distinct(est_data$duo_field), n_stem, n_ns),
   check.names = FALSE
 )
@@ -1196,22 +1008,22 @@ kable(f_table, caption = "First-Stage F-Statistics by Subsample",
 ## 12.3 2SLS Results by Subsample
 
 ```{r het-iv}
-# -- 2SLS: STEM subsample (dual instruments) ----------------------------------
+# -- 2SLS: STEM subsample -----------------------------------------------------
 iv_stem <- feols(log_income ~ age + age_sq + education_years + hours_worked +
                    hours_sq + partner + tenure_years | survey_year |
-                   share_int ~ Z_visa_field + Z_youth_field,
+                   share_int ~ Z_visa_field,
                  data = est_data %>% filter(stem == TRUE), cluster = ~duo_field)
-# -- 2SLS: Non-STEM subsample (dual instruments) ------------------------------
+# -- 2SLS: Non-STEM subsample -------------------------------------------------
 iv_nonstem <- feols(log_income ~ age + age_sq + education_years + hours_worked +
                       hours_sq + partner + tenure_years | survey_year |
-                      share_int ~ Z_visa_field + Z_youth_field,
+                      share_int ~ Z_visa_field,
                     data = est_data %>% filter(stem == FALSE), cluster = ~duo_field)
 
 # Side-by-side table
 list("Non-STEM (2SLS)" = iv_nonstem, "STEM (2SLS)" = iv_stem) %>%
   modelsummary(stars = TRUE, gof_map = c("nobs", "r.squared"),
                output = "data.frame") %>%
-  kable(caption = "Heterogeneity: STEM vs Non-STEM (Dual Instruments)",
+  kable(caption = "Heterogeneity: STEM vs Non-STEM (Visa Instrument)",
         booktabs = TRUE) %>%
   kable_styling(latex_options = "hold_position")
 ```
@@ -1220,9 +1032,7 @@ list("Non-STEM (2SLS)" = iv_nonstem, "STEM (2SLS)" = iv_stem) %>%
 
 ```{r het-rf-interact}
 # -- Test whether the reduced-form effect differs by STEM status ---------------
-# Includes interaction terms: Z_visa_field x stem and Z_youth_field x stem.
-# A significant interaction term suggests the instrument's wage effect varies by STEM.
-rf_interact <- feols(log_income ~ Z_visa_field * stem + Z_youth_field * stem +
+rf_interact <- feols(log_income ~ Z_visa_field * stem +
                        age + age_sq + education_years + hours_worked +
                        hours_sq + partner + tenure_years | survey_year,
                      data = est_data, cluster = ~duo_field)
@@ -1259,40 +1069,28 @@ list("OLS (STEM)" = ols_stem, "OLS (Non-STEM)" = ols_nonstem) %>%
 
 ```{r summary-full}
 # -- Full sample models (already exist from sections above) --
-# ols, iv_visa, iv_youth, iv_dual
-# f_visa, f_youth, f_dual
+# ols, iv_visa
 
 # -- STEM subsample: single-instrument IV models --------------------------
 iv_visa_stem <- feols(log_income ~ age + age_sq + education_years + hours_worked +
                         hours_sq + partner + tenure_years | survey_year |
                         share_int ~ Z_visa_field,
                       data = est_data %>% filter(stem == TRUE), cluster = ~duo_field)
-iv_youth_stem <- feols(log_income ~ age + age_sq + education_years + hours_worked +
-                         hours_sq + partner + tenure_years | survey_year |
-                         share_int ~ Z_youth_field,
-                       data = est_data %>% filter(stem == TRUE), cluster = ~duo_field)
 
 # -- Non-STEM subsample: single-instrument IV models ----------------------
 iv_visa_nonstem <- feols(log_income ~ age + age_sq + education_years + hours_worked +
                            hours_sq + partner + tenure_years | survey_year |
                            share_int ~ Z_visa_field,
                          data = est_data %>% filter(stem == FALSE), cluster = ~duo_field)
-iv_youth_nonstem <- feols(log_income ~ age + age_sq + education_years + hours_worked +
-                            hours_sq + partner + tenure_years | survey_year |
-                            share_int ~ Z_youth_field,
-                          data = est_data %>% filter(stem == FALSE), cluster = ~duo_field)
 ```
 
 ```{r summary-panel, results='asis'}
 # -- Panel A: Full Sample --
-panel_full <- list("OLS" = ols, "IV-Visa" = iv_visa, "IV-Youth" = iv_youth,
-                   "IV-Both" = iv_dual)
+panel_full <- list("OLS" = ols, "IV-Visa" = iv_visa)
 # -- Panel B: STEM Fields --
-panel_stem <- list("OLS" = ols_stem, "IV-Visa" = iv_visa_stem,
-                   "IV-Youth" = iv_youth_stem, "IV-Both" = iv_stem)
+panel_stem <- list("OLS" = ols_stem, "IV-Visa" = iv_visa_stem)
 # -- Panel C: Non-STEM Fields --
-panel_nonstem <- list("OLS" = ols_nonstem, "IV-Visa" = iv_visa_nonstem,
-                      "IV-Youth" = iv_youth_nonstem, "IV-Both" = iv_nonstem)
+panel_nonstem <- list("OLS" = ols_nonstem, "IV-Visa" = iv_visa_nonstem)
 
 # -- Compute subsample-specific F-stats for the comprehensive table ------------
 # STEM: visa-only first stage
@@ -1305,21 +1103,11 @@ fs_v_ns <- feols(share_int ~ Z_visa_field + age + age_sq + education_years +
                    hours_worked + hours_sq + partner + tenure_years | survey_year,
                  data = est_data %>% filter(stem == FALSE), cluster = ~duo_field)
 invisible(capture.output(f_v_ns <- wald(fs_v_ns, "Z_visa_field")$stat))
-# STEM: youth-only first stage
-fs_y_stem <- feols(share_int ~ Z_youth_field + age + age_sq + education_years +
-                     hours_worked + hours_sq + partner + tenure_years | survey_year,
-                   data = est_data %>% filter(stem == TRUE), cluster = ~duo_field)
-invisible(capture.output(f_y_stem <- wald(fs_y_stem, "Z_youth_field")$stat))
-# Non-STEM: youth-only first stage
-fs_y_ns <- feols(share_int ~ Z_youth_field + age + age_sq + education_years +
-                     hours_worked + hours_sq + partner + tenure_years | survey_year,
-                   data = est_data %>% filter(stem == FALSE), cluster = ~duo_field)
-invisible(capture.output(f_y_ns <- wald(fs_y_ns, "Z_youth_field")$stat))
 
 # -- Render Panel A: Full Sample --
 modelsummary(panel_full, stars = TRUE,
-             estimate = "{estimate} ({std.error}){stars}",  # Compact: coef (SE) with stars
-             statistic = NULL,                               # No separate t-stat row
+             estimate = "{estimate} ({std.error}){stars}",
+             statistic = NULL,
              gof_map = c("nobs", "r.squared"),
              output = "data.frame") %>%
   kable(booktabs = TRUE, digits = 3, caption = "Panel A: Full Sample") %>%
@@ -1347,42 +1135,21 @@ modelsummary(panel_nonstem, stars = TRUE,
 ```
 
 ```{r fstat-table, results='asis'}
-
 # -- Comprehensive F-stat table: all instruments x all subsamples -------------
-n_full <- n_distinct(est_data$duo_field)  # Total distinct fields in the full sample
+n_full <- n_distinct(est_data$duo_field)
 
 fstat_table <- data.frame(
-  Subsample = rep(c("Full Sample", "STEM Fields", "Non-STEM Fields"), each = 3),
-  Instrument = rep(c("Visa", "Youth Unemp.", "Visa + Youth"), 3),
-  `F-statistic` = c(
-    round(f_visa, 1), round(f_youth, 1), round(f_dual, 1),       # Full sample
-    round(f_v_stem, 1), round(f_y_stem, 1), round(f_stem, 1),    # STEM
-    round(f_v_ns, 1), round(f_y_ns, 1), round(f_nonstem, 1)      # Non-STEM
-  ),
-  `# Fields` = c(n_full, n_full, n_full, n_stem, n_stem, n_stem, n_ns, n_ns, n_ns),
+  Subsample = c("Full Sample", "STEM Fields", "Non-STEM Fields"),
+  Instrument = c("Visa", "Visa", "Visa"),
+  `F-statistic` = c(round(f_visa, 1), round(f_v_stem, 1), round(f_v_ns, 1)),
+  `# Fields` = c(n_full, n_stem, n_ns),
   check.names = FALSE
 )
 
 kable(fstat_table,
-      caption = "First-Stage F-Statistics: All Instruments by Subsample",
+      caption = "First-Stage F-Statistics by Subsample",
       booktabs = TRUE, digits = 1) %>%
   kable_styling(latex_options = "hold_position")
-```
-
-```{r sargan-test, results='asis'}
-# -- Final Sargan test result with interpretation -----------------------------
-cat("**Final diagnostic --- Sargan overidentification test:**\n",
-    "The Visa and Youth instruments are jointly tested for validity.\n",
-    "Note: these instruments now use field-specific nationality shares from the",
-    "yielding a pairwise correlation of r ~ 0.985. This near-collinearity reduces\n",
-    "the power of overidentification tests.\n\n",
-    "Sargan test p-value:",
-    if (!is.null(sargan$sargan$p)) round(sargan$sargan$p, 4) else "N/A",
-    "---",
-    if (!is.null(sargan$sargan$p) && sargan$sargan$p > 0.05)
-      "fail to reject joint validity (p > 0.05)" else "reject joint validity (p < 0.05)",
-    "\nBoth instruments are strong in the first stage (F >> 10 for all specifications).\n",
-    "The Visa instrument is preferred due to its direct link to student migration policy.\n")
 ```
 
 ```{r session-info, results='asis'}
@@ -1428,9 +1195,8 @@ est_data_z <- est_data %>%
     hours_worked_z = scale(hours_worked)[, 1],
     hours_sq_z = scale(hours_sq)[, 1],
     tenure_years_z = scale(tenure_years)[, 1],
-    # Instruments (field-level shift-share products)
-    Z_visa_field_z = scale(Z_visa_field)[, 1],
-    Z_youth_field_z = scale(Z_youth_field)[, 1]
+    # Instruments (field-level shift-share product)
+    Z_visa_field_z = scale(Z_visa_field)[, 1]
   )
 ```
 
@@ -1444,15 +1210,6 @@ ols_z <- feols(log_income_z ~ share_int_z + age_z + age_sq_z + education_years_z
 iv_visa_z <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
                      hours_worked_z + hours_sq_z + partner + tenure_years_z | survey_year |
                      share_int_z ~ Z_visa_field_z, data = est_data_z, cluster = ~duo_field)
-# 2SLS: Youth (standardized)
-iv_youth_z <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
-                      hours_worked_z + hours_sq_z + partner + tenure_years_z | survey_year |
-                      share_int_z ~ Z_youth_field_z, data = est_data_z, cluster = ~duo_field)
-# 2SLS: Both (standardized)
-iv_dual_z <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
-                     hours_worked_z + hours_sq_z + partner + tenure_years_z | survey_year |
-                     share_int_z ~ Z_visa_field_z + Z_youth_field_z,
-                   data = est_data_z, cluster = ~duo_field)
 ```
 
 ```{r stdz-stem}
@@ -1467,16 +1224,6 @@ iv_visa_stem_z <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
                           hours_worked_z + hours_sq_z + partner + tenure_years_z | survey_year |
                           share_int_z ~ Z_visa_field_z,
                         data = est_data_z %>% filter(stem == TRUE), cluster = ~duo_field)
-# STEM: IV-Youth
-iv_youth_stem_z <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
-                           hours_worked_z + hours_sq_z + partner + tenure_years_z | survey_year |
-                           share_int_z ~ Z_youth_field_z,
-                         data = est_data_z %>% filter(stem == TRUE), cluster = ~duo_field)
-# STEM: IV-Both
-iv_dual_stem_z <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
-                          hours_worked_z + hours_sq_z + partner + tenure_years_z | survey_year |
-                          share_int_z ~ Z_visa_field_z + Z_youth_field_z,
-                        data = est_data_z %>% filter(stem == TRUE), cluster = ~duo_field)
 # Non-STEM: OLS
 ols_nonstem_z <- feols(log_income_z ~ share_int_z + age_z + age_sq_z + education_years_z +
                          hours_worked_z + hours_sq_z + partner + tenure_years_z |
@@ -1487,35 +1234,20 @@ iv_visa_nonstem_z <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
                              hours_worked_z + hours_sq_z + partner + tenure_years_z | survey_year |
                              share_int_z ~ Z_visa_field_z,
                            data = est_data_z %>% filter(stem == FALSE), cluster = ~duo_field)
-# Non-STEM: IV-Youth
-iv_youth_nonstem_z <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
-                              hours_worked_z + hours_sq_z + partner + tenure_years_z | survey_year |
-                              share_int_z ~ Z_youth_field_z,
-                            data = est_data_z %>% filter(stem == FALSE), cluster = ~duo_field)
-# Non-STEM: IV-Both
-iv_dual_nonstem_z <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
-                             hours_worked_z + hours_sq_z + partner + tenure_years_z | survey_year |
-                             share_int_z ~ Z_visa_field_z + Z_youth_field_z,
-                           data = est_data_z %>% filter(stem == FALSE), cluster = ~duo_field)
 ```
 
 ```{r stdz-reduced}
-# -- Standardized: Reduced Form (all subsamples) ------------------------------
+# -- Standardized: Reduced Form ------------------------------------------------
 rf_visa_z <- feols(log_income_z ~ Z_visa_field_z + age_z + age_sq_z +
                      education_years_z + hours_worked_z + hours_sq_z +
                      partner + tenure_years_z | survey_year,
                    data = est_data_z, cluster = ~duo_field)
-rf_youth_z <- feols(log_income_z ~ Z_youth_field_z + age_z + age_sq_z +
-                      education_years_z + hours_worked_z + hours_sq_z +
-                      partner + tenure_years_z | survey_year,
-                    data = est_data_z, cluster = ~duo_field)
 ```
 
 ```{r stdz-table, results='asis'}
 # -- Standardized: Full Sample Main Results Table -----------------------------
 cat("\n## 14.1 Standardized Results --- Full Sample\n\n")
-list("OLS (Std)" = ols_z, "2SLS-Visa (Std)" = iv_visa_z,
-     "2SLS-Youth (Std)" = iv_youth_z, "2SLS-Both (Std)" = iv_dual_z) %>%
+list("OLS (Std)" = ols_z, "2SLS-Visa (Std)" = iv_visa_z) %>%
   modelsummary(stars = TRUE, estimate = "{estimate} ({std.error}){stars}",
                statistic = NULL, gof_map = c("nobs", "r.squared"),
                output = "data.frame") %>%
@@ -1532,8 +1264,7 @@ cat("\n**Note:** All continuous variables are standardized (mean = 0, SD = 1).\n
 cat("\n## 14.2 Standardized Results --- STEM vs Non-STEM\n\n")
 
 cat("**STEM subsample:**\n")
-list("OLS (STEM, Std)" = ols_stem_z, "IV-Visa (STEM, Std)" = iv_visa_stem_z,
-     "IV-Youth (STEM, Std)" = iv_youth_stem_z, "IV-Both (STEM, Std)" = iv_dual_stem_z) %>%
+list("OLS (STEM, Std)" = ols_stem_z, "IV-Visa (STEM, Std)" = iv_visa_stem_z) %>%
   modelsummary(stars = TRUE, estimate = "{estimate} ({std.error}){stars}",
                statistic = NULL, gof_map = c("nobs", "r.squared"),
                output = "data.frame") %>%
@@ -1542,8 +1273,7 @@ list("OLS (STEM, Std)" = ols_stem_z, "IV-Visa (STEM, Std)" = iv_visa_stem_z,
   kable_styling(latex_options = "hold_position")
 
 cat("\n\n**Non-STEM subsample:**\n")
-list("OLS (Non-STEM, Std)" = ols_nonstem_z, "IV-Visa (Non-STEM, Std)" = iv_visa_nonstem_z,
-     "IV-Youth (Non-STEM, Std)" = iv_youth_nonstem_z, "IV-Both (Non-STEM, Std)" = iv_dual_nonstem_z) %>%
+list("OLS (Non-STEM, Std)" = ols_nonstem_z, "IV-Visa (Non-STEM, Std)" = iv_visa_nonstem_z) %>%
   modelsummary(stars = TRUE, estimate = "{estimate} ({std.error}){stars}",
                statistic = NULL, gof_map = c("nobs", "r.squared"),
                output = "data.frame") %>%
@@ -1553,7 +1283,7 @@ list("OLS (Non-STEM, Std)" = ols_nonstem_z, "IV-Visa (Non-STEM, Std)" = iv_visa_
 
 # -- Standardized: Reduced Form -----------------------------------------------
 cat("\n## 14.3 Standardized Reduced Form\n\n")
-list("RF-Visa (Std)" = rf_visa_z, "RF-Youth (Std)" = rf_youth_z) %>%
+list("RF-Visa (Std)" = rf_visa_z) %>%
   modelsummary(stars = TRUE, estimate = "{estimate} ({std.error}){stars}",
                statistic = NULL, gof_map = c("nobs", "r.squared"),
                output = "data.frame") %>%
