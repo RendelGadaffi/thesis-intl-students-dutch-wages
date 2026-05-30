@@ -194,7 +194,14 @@ english_kw <- c("studies", "science", "engineering", "management", "economics", 
 dutch_kw <- c("wetenschappen", "kunde", "onderwijs", "bestuur", "gedrag", "maatschappij",
               "geneeskunde", "tandheelkunde", "rechten", "economie", "bedrijfskunde",
               "gezondheid", "zorg", "techniek", "voltijd", "deeltijd", "duaal", "recht",
-              "beheer", "studie", "opleiding", "natuur")
+              "beheer", "studie", "opleiding", "natuur", "theologie", "taal",
+              "sociologie", "psychologie", "politicologie", "filosofie", "geschiedenis",
+              "communicatie", "communicatiewetenschap", "criminologie", "antropologie",
+              "archeologie", "geografie", "planologie", "informatica", "technologie",
+              "onderwijswetenschappen", "bestuurskunde", "cultuurwetenschappen",
+              "diergeneeskunde", "aardwetenschappen", "bewegingswetenschappen",
+              "klinische", "medische", "sociale", "talen", "culturen", "educatie",
+              "betrekkingen", "organisatie", "beleid", "rechtsgeleerdheid", "religiewetenschappen")
 
 prog_class <- tibble(opleidingsnaam = unique(DUO_long$opleidingsnaam)) %>%
   mutate(is_international = sapply(opleidingsnaam, function(nm) {
