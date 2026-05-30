@@ -194,7 +194,8 @@ prog_class <- tibble(opleidingsnaam = unique(DUO_long$opleidingsnaam)) %>%
       words <- tolower(.) %>% str_split("[^a-z]") %>% unlist()
       words <- words[nchar(words) > 1]
       if (length(words) == 0) return(0)
-      sum(hunspell::hunspell_check(words, dict = "nl_NL"))
+      dict_nl <- hunspell::dictionary("dutch.dic")
+      sum(hunspell::hunspell_check(words, dict = dict_nl))
     }),
     is_international = english_count > dutch_count
   )
