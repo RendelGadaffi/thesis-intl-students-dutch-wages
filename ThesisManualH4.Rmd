@@ -96,12 +96,12 @@ visa_files <- c(
 # Two files: WO (university) and HBO (professional bachelor).
 
 GradsUni <- read_delim(
-  "../../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/Graduates by Gender, Institution, Field of study, University level.csv",
+  "../../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/05.-gediplomeerden-wo-2025.csv",
   delim = ";"
 )
 
 GradsProf <- read_delim(
-  "../../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/Graduates by Gender, Institution, Field of study, Professional level.csv",
+  "../../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/05.-gediplomeerden-hbo-2024.csv",
   delim = ";"
 )
 # Institution address metadata: used to geolocate institutions to provinces/cities
