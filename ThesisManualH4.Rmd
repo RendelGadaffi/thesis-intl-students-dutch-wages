@@ -1299,9 +1299,24 @@ for (yr in names(late_years)) {
 }
 
 # Merge wo_flag into est_data, then split
+cat("est_data rows before merge:", nrow(est_data), "\n")
+cat("edu_raw rows:", nrow(edu_raw), "\n")
+
+# Check join key compatibility
+cat("nomem_encr type in est_data:", class(est_data$nomem_encr)[1], "\n")
+cat("nomem_encr type in edu_raw:", class(edu_raw$nomem_encr)[1], "\n")
+cat("survey_year type in est_data:", class(est_data$survey_year)[1], "\n")
+cat("survey_year type in edu_raw:", class(edu_raw$survey_year)[1], "\n\n")
+
+# Preview join
+before <- nrow(est_data)
 est_data <- est_data %>%
   left_join(edu_raw, by = c("nomem_encr", "survey_year")) %>%
   mutate(wo_flag = coalesce(wo_flag, "Other"))
+
+cat("est_data rows after merge:", nrow(est_data), "\n")
+cat("wo_flag distribution:\n")
+print(table(est_data$wo_flag, useNA = "ifany"))
 
 wo  <- est_data %>% filter(wo_flag == "WO")
 hbo <- est_data %>% filter(wo_flag == "HBO")
