@@ -184,7 +184,7 @@ DUO_long <- DUO_all %>%
 # Switched to CBS senior-year data by field and origin (non-EU only, per CBS permits).
 # This replaces the old programme-name keyword classification.
 
-base <- "/desktop/Thesis work/Data/CBS Incoming Student Ethnical Makeup"
+base <- "../../../Data/CBS Incoming Student Ethnical Makeup"
 
 intl <- read_delim(file.path(base, "Internationals by gender, Fos, Senior year.csv"), delim = ";", show_col_types = FALSE)
 total <- read_delim(file.path(base, "Dutch people by FoS, gender, senior year.csv"), delim = ";", show_col_types = FALSE)
