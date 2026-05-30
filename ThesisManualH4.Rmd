@@ -764,7 +764,7 @@ est_data <- est_data %>%
 # -- Summary statistics table --------------------------------------------------
 # Mean (SD) shown in each row.
 est_data %>%
-  summarise(N = n(),
+  summarise(N = sprintf("%d", n()),
             `Log Income` = sprintf("%.3f (%.3f)", mean(log_income), sd(log_income)),
             `Age` = sprintf("%.1f (%.1f)", mean(age), sd(age)),
             `Education` = sprintf("%.1f (%.1f)", mean(education_years), sd(education_years)),
