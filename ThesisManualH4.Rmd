@@ -180,76 +180,36 @@ DUO_long <- DUO_all %>%
     onderdeel = str_to_lower(str_trim(onderdeel))
   )
 
-# -- Classify programs as international (English-taught) vs Dutch-taught ------
-english_kw <- c("studies", "science", "engineering", "management", "economics", "business",
-                "international", "global", "european", "research", "development", "technology",
-                "policy", "law", "health", "sustainability", "innovation", "governance",
-                "leadership", "psychology", "sociology", "anthropology", "communication",
-                "and", "the", "of", "for", "data", "design", "media",
-                "geography", "entrepreneurship", "cultural", "human", "theology",
-                "neuroscience", "informatics", "mathematics", "physics", "chemistry",
-                "biology", "history", "philosophy", "linguistics", "literature",
-                "artificial", "intelligence", "spatial", "planning", "biomedical", "molecular", "information", "natural",
-                "pharmaceutical", "biotechnology", "nanotechnology", "astronomy", "ecology",
-                "hydrology", "robotics", "oncology", "epidemiology", "forensic",
-                "technical", "industrial", "applied", "earth", "medical", "joint",
-                "environmental", "animal", "biobased", "finance", "marketing",
-                "change", "soil", "water", "atmosphere", "food", "safety")
+# -- CBS International senior share (actual herkomst, non-EU) ----------------
+# Switched to CBS senior-year data by field and origin (non-EU only, per CBS permits).
+# This replaces the old programme-name keyword classification.
 
-dutch_kw <- c("wetenschappen", "kunde", "onderwijs", "bestuur", "gedrag", "maatschappij",
-              "geneeskunde", "tandheelkunde", "rechten", "economie", "bedrijfskunde",
-              "gezondheid", "zorg", "techniek", "voltijd", "deeltijd", "duaal", "recht",
-              "beheer", "studie", "opleiding", "natuur", "theologie", "taal",
-              "sociologie", "psychologie", "politicologie", "filosofie", "geschiedenis",
-              "communicatie", "communicatiewetenschap", "criminologie", "antropologie",
-              "archeologie", "geografie", "planologie", "informatica", "technologie",
-              "onderwijswetenschappen", "bestuurskunde", "cultuurwetenschappen",
-              "diergeneeskunde", "aardwetenschappen", "bewegingswetenschappen",
-              "klinische", "medische", "sociale", "talen", "culturen", "educatie",
-              "betrekkingen", "organisatie", "beleid", "rechtsgeleerdheid", "religiewetenschappen",
-              "master", "ad", "therapie", "therapies", "leiderschap", "performing", "arts",
-              "frontend", "design", "development", "operationeel", "smart", "media",
-              "event", "experience", "accountmanagement", "sales", "iot", "internet",
-              "kunst", "architectuur", "leraar", "voorbereidend", "hoger",
-              "letterkunde", "oudheid", "bos", "natuurbeheer", "agrotechnologie", "planten",
-              "bedrijfs", "consumenten", "ontwikkelings", "internationale", "onderzoek",
-              "product", "strategisch", "taalwetenschap", "kunstgeschiedenis", "oudheidstudies",
-              "plantenwetenschappen", "biotechnologie", "biologie", "moleculaire", "levenswetenschappen",
-              "onderneming")
+base <- "/desktop/Thesis work/Data/CBS Incoming Student Ethnical Makeup"
 
-prog_class <- tibble(opleidingsnaam = unique(DUO_long$opleidingsnaam)) %>%
-  mutate(is_international = sapply(opleidingsnaam, function(nm) {
-    words <- tolower(nm) %>% str_split("[^a-z]") %>% unlist()
-    words <- words[nchar(words) > 1]
-    if (length(words) == 0) return(NA)
-    eng <- sum(words %in% english_kw)
-    dut <- sum(words %in% dutch_kw)
-    eng > dut && eng >= 1
-  }))
+intl <- read_delim(file.path(base, "Internationals by gender, Fos, Senior year.csv"), delim = ";", show_col_types = FALSE)
+total <- read_delim(file.path(base, "Dutch people by FoS, gender, senior year.csv"), delim = ";", show_col_types = FALSE)
 
-DUO_long <- DUO_long %>% left_join(prog_class, by = "opleidingsnaam")
+non_eu <- c("Buiten-Europa (excl. 5 grote herkomst...)", "Indonesië", "Marokko", "Nederlandse Cariben", "Suriname", "Turkije")
 
-# -- Field-level international share -------------------------------------------
-field_shares <- DUO_long %>%
-  filter(!is.na(is_international), !is.na(graduates), graduates > 0) %>%
-  group_by(onderdeel, year) %>%
-  summarise(
-    total_graduates = sum(graduates, na.rm = TRUE),
-    intl_graduates  = sum(graduates[is_international == TRUE], na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  mutate(share_int = intl_graduates / total_graduates)
+intl_seniors <- intl %>%
+  filter(Herkomstland %in% non_eu) %>%
+  group_by(Studierichting, Perioden, Onderwijssoort) %>%
+  summarise(intl_seniors = sum(as.numeric(`Totaal ingeschrevenen (aantal)`), na.rm = TRUE), .groups = "drop")
 
-# -- Institution-level international share (robustness) ------------------------
-inst_shares <- DUO_long %>%
-  filter(!is.na(is_international), !is.na(graduates), graduates > 0) %>%
-  group_by(instellingsnaam, onderdeel, year) %>%
-  summarise(
-    total_graduates = sum(graduates, na.rm = TRUE),
-    intl_graduates  = sum(graduates[is_international == TRUE], na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  mutate(share_int_inst = intl_graduates / total_graduates)
+total_seniors <- total %>%
+  group_by(Studierichting, Perioden, Onderwijssoort) %>%
+  summarise(total_seniors = sum(as.numeric(`Ouderejaarsstudenten (aantal)`), na.rm = TRUE), .groups = "drop")
+
+cbs_share <- total_seniors %>%
+  left_join(intl_seniors, by = c("Studierichting", "Perioden", "Onderwijssoort")) %>%
+  mutate(
+    share_int = ifelse(total_seniors > 0, intl_seniors / total_seniors, NA_real_),
+    year = as.integer(str_sub(Perioden, 1, 4))
+  )
+
+# Note: Studierichting (e.g. "01 Onderwijs") will need a mapping to "onderdeel" in DUO_long
+# for joining with graduate totals if required downstream. The old is_international flag
+# and keyword lists are no longer used for the main share.
 ```
 
 # 4. Process CBS -> Nationality Shares (2010, per AEA 10-year lag)
