@@ -1462,7 +1462,12 @@ for (i in seq_along(lag_vars)) {
                            " + age + age_sq + education_years + hours_worked + hours_sq + partner | duo_field"))
   fs <- feols(fml, data = est_data_lag, cluster = ~duo_field)
   fs_lag_list[[lag_labels[i]]] <- fs
-  invisible(capture.output(f_lag_stats[i] <- wald(fs, lag_vars[i])$stat))
+  # tryCatch: wald() returns an atomic vector (NA) when estimation fails
+  # (e.g. Lag 5 is all-NA because no visa data exists for t-5)
+  f_lag_stats[i] <- tryCatch(
+    { invisible(capture.output(s <- wald(fs, lag_vars[i])$stat)); s },
+    error = function(e) NA_real_
+  )
 }
 
 f_lag_table <- data.frame(
