@@ -118,57 +118,38 @@ EthnicalMakeup <- read.csv("../../../Data/CBS Incoming Student Ethnical Makeup/V
 # 2. Process IND Visa
 
 ```{r process-visa}
-# -- Extract acceptance rates from each year's IND Excel file ------------------
-# Define the years corresponding to each file in visa_files (index 1 = 2020, etc.)
+# -- IND Schengen visa acceptance rates (2020-2024) ---------------------------
+# Load each year's Excel file, keep only Netherlands consulates, and extract
+# acceptance rates by applicant nationality. Column names are selected after
+# inspecting the raw datasets.
+
 years <- 2020:2024
-# Create an empty list that will store one data frame per successfully read year
 visa_list <- list()
 
-# Loop over each file index (1 through 5, one per year)
 for (i in seq_along(visa_files)) {
-  f <- visa_files[i]  # Full path to the i-th Excel file
-  y <- years[i]       # Calendar year for this file (e.g., 2020)
+  if (!file.exists(visa_files[i])) next
 
-  # Skip this file if it doesn't exist on disk (avoids crashing if one year is missing)
-  if (!file.exists(f)) next
+  df <- read_excel(visa_files[i], sheet = "Data for consulates") %>%
+    clean_names() %>%
+    mutate(year = years[i])
 
-  # Read the Excel file, select the "Data for consulates" sheet,
-  # clean_names() converts column names to snake_case (e.g. "Not Issued Rate" -> "not_issued_rate"),
-  # then add a column 'year' indicating which year this data covers.
-  df <- read_excel(f, sheet = "Data for consulates") %>% clean_names() %>% mutate(year = y)
-
-  # -- Auto-detect key columns (column names change slightly year-to-year) -----
-  # Find the column whose name contains "schengen" --- this identifies the visa type column
-  schengen_col <- grep("schengen", names(df), value = TRUE)[1]
-  # Find the column for country or consulate location (try "country*consul" first, then "country*loc")
-  country_col  <- grep("country.*consul|country.*loc", names(df), value = TRUE, ignore.case = TRUE)[1]
-  # Fallback: if no match above, look for a column called exactly "country"
-  if (is.na(country_col)) country_col <- grep("^country$", names(df), value = TRUE)[1]
-  # Find the rejection-rate column (named something like "not issued rate", "rejection", or "refusal")
-  not_issued_col <- grep("not.*issued.*rate|rejection|refusal", names(df), value = TRUE, ignore.case = TRUE)[1]
-  # If any of these three essential columns is missing, skip this year entirely
-  if (is.na(schengen_col) || is.na(country_col) || is.na(not_issued_col)) next
-
-  # Filter to rows where the schengen column mentions "Netherlands" or "Nederland"
-  # (the IND file includes data for all Schengen states; we only want the Netherlands)
-  nl <- df[grepl("Netherlands|Nederland", df[[schengen_col]], ignore.case = TRUE), ]
-  # If no Netherlands row exists, skip this year
-  if (nrow(nl) == 0) next
-
-  # Extract the three columns we need and compute the acceptance rate
-  visa_list[[i]] <- nl %>%
-    mutate(
-      country = as.character(.data[[country_col]]),              # Applicant's country of nationality
-      not_issued_rate = as.numeric(.data[[not_issued_col]]),    # Proportion of applications rejected
-      acceptance_rate = 1 - not_issued_rate                     # Proportion accepted (1 minus rejection rate)
+  # Filter to Netherlands consulates and select key columns
+  # (adjust the exact column names below after viewing the data in R)
+  nl <- df %>%
+    filter(str_detect(schengen, "Netherlands|Nederland", ignore.case = TRUE)) %>%
+    select(
+      country = country_of_nationality,     # or "country" / "consulate"
+      not_issued_rate = not_issued_rate,    # or "rejection_rate" / "refusal_rate"
+      year
     ) %>%
-    # Keep only the four columns we need
-    select(country, not_issued_rate, acceptance_rate, year) %>%
-    # Standardize country names to uppercase (eases merging with other datasets)
-    mutate(country = str_to_upper(str_trim(country)))
+    mutate(
+      acceptance_rate = 1 - not_issued_rate,
+      country = str_to_upper(str_trim(country))
+    )
+
+  if (nrow(nl) > 0) visa_list[[i]] <- nl
 }
 
-# Combine all yearly data frames into one master table: one row per country x year
 Consulates <- bind_rows(visa_list)
 ```
 
