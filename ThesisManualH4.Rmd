@@ -762,19 +762,21 @@ est_data <- est_data %>%
 
 ```{r descriptives}
 # -- Summary statistics table --------------------------------------------------
-# Compute means (and one SD) for all key variables across the estimation sample.
+# Mean (SD) shown in each row.
 est_data %>%
-  summarise(N = n(), `Log Income` = mean(log_income), `Age` = mean(age),
-            `Education` = mean(education_years), `Hours` = mean(hours_worked),
-            `Partner` = mean(partner, na.rm = TRUE),
-            `Tenure` = mean(tenure_years, na.rm = TRUE),
-            `Share Intl` = mean(share_int), `Share Intl (SD)` = sd(share_int),
-            `Z_visa_field` = mean(Z_visa_field, na.rm = TRUE),
-            `STEM` = mean(stem)) %>%
-  # Reshape to vertical format (one statistic per row) for a cleaner table
+  summarise(N = n(),
+            `Log Income` = sprintf("%.3f (%.3f)", mean(log_income), sd(log_income)),
+            `Age` = sprintf("%.1f (%.1f)", mean(age), sd(age)),
+            `Education` = sprintf("%.1f (%.1f)", mean(education_years), sd(education_years)),
+            `Hours` = sprintf("%.1f (%.1f)", mean(hours_worked, na.rm = TRUE), sd(hours_worked, na.rm = TRUE)),
+            `Partner` = sprintf("%.2f (%.2f)", mean(partner, na.rm = TRUE), sd(partner, na.rm = TRUE)),
+            `Share Intl` = sprintf("%.3f (%.3f)", mean(share_int), sd(share_int)),
+            `Z_visa_field` = sprintf("%.4f (%.4f)", mean(Z_visa_field, na.rm = TRUE), sd(Z_visa_field, na.rm = TRUE)),
+            `STEM` = sprintf("%.2f (%.2f)", mean(stem), sd(stem))) %>%
+  # Reshape to vertical format (one row per statistic)
   pivot_longer(everything(), names_to = "Statistic", values_to = "Value") %>%
   # Render as a publication-quality LaTeX table
-  kable(caption = "Descriptive Statistics", booktabs = TRUE, digits = 3) %>%
+  kable(caption = "Descriptive Statistics", booktabs = TRUE) %>%
   kable_styling(latex_options = "hold_position")
 ```
 
@@ -788,7 +790,7 @@ est_data %>%
 # feols is the fixest package's OLS estimator (fast with many fixed effects).
 # | survey_year means year fixed effects are absorbed (projected out).
 # cluster = ~duo_field: standard errors clustered at the field level (within-field correlation).
-fs_visa <- feols(share_int ~ Z_visa_field + age + age_sq + education_years + hours_worked + hours_sq + partner + tenure_years | survey_year,
+fs_visa <- feols(share_int ~ Z_visa_field + age + age_sq + education_years + hours_worked + hours_sq + partner | survey_year,
                  data = est_data, cluster = ~duo_field)
 
 # Extract the F-statistic for the excluded instrument: Wald test that Z_visa_field coefficient = 0.
@@ -814,7 +816,7 @@ cat("\n**F-stat (visa instrument):**", round(f_visa, 2),
 # -- OLS (naive) regression: log_income ~ share_int + controls ----------------
 # This is the baseline --- it ignores endogeneity and will be biased if share_int
 # is correlated with unobserved determinants of wages (ability sorting, etc.).
-ols <- feols(log_income ~ share_int + age + age_sq + education_years + hours_worked + hours_sq + partner + tenure_years | survey_year,
+ols <- feols(log_income ~ share_int + age + age_sq + education_years + hours_worked + hours_sq + partner | survey_year,
              data = est_data, cluster = ~duo_field)
 ```
 
@@ -825,7 +827,7 @@ ols <- feols(log_income ~ share_int + age + age_sq + education_years + hours_wor
 # feols formula: outcome ~ exogenous controls | FE | endogenous ~ instruments
 # This estimates: log_income = beta x share_int_hat + Xdelta + eps, where share_int_hat
 # is the predicted value from the first stage (Z_visa_field as instrument).
-iv_visa <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner + tenure_years | survey_year |
+iv_visa <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | survey_year |
                    share_int ~ Z_visa_field, data = est_data, cluster = ~duo_field)
 ```
 
@@ -852,7 +854,7 @@ cat("\n**Note on potential bad controls:**\n",
 # The reduced form estimates the direct effect of each instrument on log income.
 # If an instrument is valid, its reduced-form coefficient should be proportional
 # to the 2SLS coefficient (scaled by the first-stage strength).
-rf_visa  <- feols(log_income ~ Z_visa_field + age + age_sq + education_years + hours_worked + hours_sq + partner + tenure_years | survey_year,
+rf_visa  <- feols(log_income ~ Z_visa_field + age + age_sq + education_years + hours_worked + hours_sq + partner | survey_year,
                   data = est_data, cluster = ~duo_field)
 
 # Table
@@ -898,14 +900,14 @@ est_data %>%
 # -- STEM first stage ---------------------------------------------------------
 fs_stem <- feols(share_int ~ Z_visa_field + age + age_sq +
                    education_years + hours_worked + hours_sq + partner +
-                   tenure_years | survey_year,
+                   | survey_year,
                  data = est_data %>% filter(stem == TRUE), cluster = ~duo_field)
 invisible(capture.output(f_stem <- wald(fs_stem, "Z_visa_field")$stat))
 
 # -- Non-STEM first stage -----------------------------------------------------
 fs_nonstem <- feols(share_int ~ Z_visa_field + age + age_sq +
                       education_years + hours_worked + hours_sq + partner +
-                      tenure_years | survey_year,
+                      | survey_year,
                     data = est_data %>% filter(stem == FALSE), cluster = ~duo_field)
 invisible(capture.output(f_nonstem <- wald(fs_nonstem, "Z_visa_field")$stat))
 
@@ -931,12 +933,12 @@ kable(f_table, caption = "First-Stage F-Statistics by Subsample",
 ```{r het-iv}
 # -- 2SLS: STEM subsample -----------------------------------------------------
 iv_stem <- feols(log_income ~ age + age_sq + education_years + hours_worked +
-                   hours_sq + partner + tenure_years | survey_year |
+                   hours_sq + partner + | survey_year |
                    share_int ~ Z_visa_field,
                  data = est_data %>% filter(stem == TRUE), cluster = ~duo_field)
 # -- 2SLS: Non-STEM subsample -------------------------------------------------
 iv_nonstem <- feols(log_income ~ age + age_sq + education_years + hours_worked +
-                      hours_sq + partner + tenure_years | survey_year |
+                      hours_sq + partner + | survey_year |
                       share_int ~ Z_visa_field,
                     data = est_data %>% filter(stem == FALSE), cluster = ~duo_field)
 
@@ -955,7 +957,7 @@ list("Non-STEM (2SLS)" = iv_nonstem, "STEM (2SLS)" = iv_stem) %>%
 # -- Test whether the reduced-form effect differs by STEM status ---------------
 rf_interact <- feols(log_income ~ Z_visa_field * stem +
                        age + age_sq + education_years + hours_worked +
-                       hours_sq + partner + tenure_years | survey_year,
+                       hours_sq + partner + | survey_year,
                      data = est_data, cluster = ~duo_field)
 
 list("Reduced Form x STEM" = rf_interact) %>%
@@ -971,11 +973,11 @@ list("Reduced Form x STEM" = rf_interact) %>%
 ```{r het-ols}
 # -- OLS within each subsample (naive comparison, for reference) --------------
 ols_stem <- feols(log_income ~ share_int + age + age_sq + education_years +
-                    hours_worked + hours_sq + partner + tenure_years |
+                    hours_worked + hours_sq + partner + |
                     survey_year, data = est_data %>% filter(stem == TRUE),
                   cluster = ~duo_field)
 ols_nonstem <- feols(log_income ~ share_int + age + age_sq + education_years +
-                       hours_worked + hours_sq + partner + tenure_years |
+                       hours_worked + hours_sq + partner + |
                        survey_year, data = est_data %>% filter(stem == FALSE),
                      cluster = ~duo_field)
 
@@ -994,13 +996,13 @@ list("OLS (STEM)" = ols_stem, "OLS (Non-STEM)" = ols_nonstem) %>%
 
 # -- STEM subsample: single-instrument IV models --------------------------
 iv_visa_stem <- feols(log_income ~ age + age_sq + education_years + hours_worked +
-                        hours_sq + partner + tenure_years | survey_year |
+                        hours_sq + partner + | survey_year |
                         share_int ~ Z_visa_field,
                       data = est_data %>% filter(stem == TRUE), cluster = ~duo_field)
 
 # -- Non-STEM subsample: single-instrument IV models ----------------------
 iv_visa_nonstem <- feols(log_income ~ age + age_sq + education_years + hours_worked +
-                           hours_sq + partner + tenure_years | survey_year |
+                           hours_sq + partner + | survey_year |
                            share_int ~ Z_visa_field,
                          data = est_data %>% filter(stem == FALSE), cluster = ~duo_field)
 ```
@@ -1016,12 +1018,12 @@ panel_nonstem <- list("OLS" = ols_nonstem, "IV-Visa" = iv_visa_nonstem)
 # -- Compute subsample-specific F-stats for the comprehensive table ------------
 # STEM: visa-only first stage
 fs_v_stem <- feols(share_int ~ Z_visa_field + age + age_sq + education_years +
-                     hours_worked + hours_sq + partner + tenure_years | survey_year,
+                     hours_worked + hours_sq + partner + | survey_year,
                    data = est_data %>% filter(stem == TRUE), cluster = ~duo_field)
 invisible(capture.output(f_v_stem <- wald(fs_v_stem, "Z_visa_field")$stat))
 # Non-STEM: visa-only first stage
 fs_v_ns <- feols(share_int ~ Z_visa_field + age + age_sq + education_years +
-                   hours_worked + hours_sq + partner + tenure_years | survey_year,
+                   hours_worked + hours_sq + partner + | survey_year,
                  data = est_data %>% filter(stem == FALSE), cluster = ~duo_field)
 invisible(capture.output(f_v_ns <- wald(fs_v_ns, "Z_visa_field")$stat))
 
@@ -1115,7 +1117,6 @@ est_data_z <- est_data %>%
     education_years_z = scale(education_years)[, 1],
     hours_worked_z = scale(hours_worked)[, 1],
     hours_sq_z = scale(hours_sq)[, 1],
-    tenure_years_z = scale(tenure_years)[, 1],
     # Instruments (field-level shift-share product)
     Z_visa_field_z = scale(Z_visa_field)[, 1]
   )
@@ -1125,11 +1126,11 @@ est_data_z <- est_data %>%
 # -- Standardized: Full Sample -------------------------------------------------
 # OLS (standardized)
 ols_z <- feols(log_income_z ~ share_int_z + age_z + age_sq_z + education_years_z +
-                 hours_worked_z + hours_sq_z + partner + tenure_years_z | survey_year,
+                 hours_worked_z + hours_sq_z + partner | survey_year,
                data = est_data_z, cluster = ~duo_field)
 # 2SLS: Visa (standardized)
 iv_visa_z <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
-                     hours_worked_z + hours_sq_z + partner + tenure_years_z | survey_year |
+                     hours_worked_z + hours_sq_z + partner | survey_year |
                      share_int_z ~ Z_visa_field_z, data = est_data_z, cluster = ~duo_field)
 ```
 
@@ -1137,22 +1138,22 @@ iv_visa_z <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
 # -- Standardized: STEM vs Non-STEM ------------------------------------------
 # STEM: OLS
 ols_stem_z <- feols(log_income_z ~ share_int_z + age_z + age_sq_z + education_years_z +
-                      hours_worked_z + hours_sq_z + partner + tenure_years_z |
+                      hours_worked_z + hours_sq_z + partner |
                       survey_year, data = est_data_z %>% filter(stem == TRUE),
                     cluster = ~duo_field)
 # STEM: IV-Visa
 iv_visa_stem_z <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
-                          hours_worked_z + hours_sq_z + partner + tenure_years_z | survey_year |
+                          hours_worked_z + hours_sq_z + partner | survey_year |
                           share_int_z ~ Z_visa_field_z,
                         data = est_data_z %>% filter(stem == TRUE), cluster = ~duo_field)
 # Non-STEM: OLS
 ols_nonstem_z <- feols(log_income_z ~ share_int_z + age_z + age_sq_z + education_years_z +
-                         hours_worked_z + hours_sq_z + partner + tenure_years_z |
+                         hours_worked_z + hours_sq_z + partner |
                          survey_year, data = est_data_z %>% filter(stem == FALSE),
                        cluster = ~duo_field)
 # Non-STEM: IV-Visa
 iv_visa_nonstem_z <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
-                             hours_worked_z + hours_sq_z + partner + tenure_years_z | survey_year |
+                             hours_worked_z + hours_sq_z + partner | survey_year |
                              share_int_z ~ Z_visa_field_z,
                            data = est_data_z %>% filter(stem == FALSE), cluster = ~duo_field)
 ```
@@ -1161,7 +1162,7 @@ iv_visa_nonstem_z <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
 # -- Standardized: Reduced Form ------------------------------------------------
 rf_visa_z <- feols(log_income_z ~ Z_visa_field_z + age_z + age_sq_z +
                      education_years_z + hours_worked_z + hours_sq_z +
-                     partner + tenure_years_z | survey_year,
+                     partner | survey_year,
                    data = est_data_z, cluster = ~duo_field)
 ```
 
