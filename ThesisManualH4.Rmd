@@ -184,14 +184,13 @@ DUO_long <- DUO_all %>%
   )
 
 # -- CBS international-background senior share (parents born outside NL) -----
-# New file "Born in or out NL, FoS, gender.csv" has Geboorteland (ouders) as
-# the partition: "Geboren in Nederland" vs "Geboren buiten Nederland".
-# This captures ALL foreign-background students (not just non-EU), and
-# has granular sub-field codes (041, 042) to separate economie from recht.
+# Uses the subgroups file with granular 3-digit CBS codes.
+# All 10 LISS fields now have a CBS match, including sectoroverstijgend
+# mapped from the dienstverlening (services) and onbekend (unknown) codes.
 
 base <- "../../../Data/CBS Incoming Student Ethnical Makeup"
 
-cbs_raw <- read_delim(file.path(base, "Born in or out NL, FoS, gender.csv"),
+cbs_raw <- read_delim(file.path(base, "Born in or out NL, FoS, gender, subgroups.csv"),
                       delim = ";", show_col_types = FALSE) %>%
   clean_names() %>%
   mutate(
@@ -217,42 +216,80 @@ cbs_share <- total_seniors %>%
   mutate(
     share_int = ifelse(total_seniors > 0,
                        coalesce(intl_seniors, 0) / total_seniors, NA_real_),
-    share_int = pmin(share_int, 1)  # cap at 1
+    share_int = pmin(share_int, 1)
   )
 
-# Map CBS Studierichting codes to DUO field names.
-# Uses granular sub-fields (041, 042) instead of aggregate "04" to separate
-# economie from recht. Drops fields with no DUO equivalent (informatica,
-# dienstverlening) — they're filtered out below.
+# Map CBS 3-digit sub-field codes to DUO field names.
+# Skips aggregate codes (z.n.d. = zonder nadere detaillering) since
+# the sub-fields already cover them.
 cbs_field_map <- tibble(
   studierichting = c(
-    "01 Onderwijs",
-    "02 Vormgeving, kunst, talen en gesch... ",
-    "03 Journalistiek, gedrag en maatschappij",
-    "041 Bedrijfskunde en administratie",       # separate from recht!
-    "042 Recht",                                # separate from economie!
-    "05 Wiskunde, natuurwetenschappen",
-    "07 Techniek, industrie en bouwkunde",
-    "08 Landbouw, diergeneeskunde en -verz...",
-    "09 Gezondheidszorg en welzijn"
+    "011 Onderwijskunde, lerarenopleiding...",
+    "021 Kunst",
+    "022 Geesteswetenschappen",
+    "023 Talen",
+    "031 Gedrag en maatschappij",
+    "032 Journalistiek, informatievoorziening",
+    "041 Bedrijfskunde en administratie",
+    "042 Recht",
+    "051 Biologie en biochemie",
+    "052 Milieu en natuurbeheer",
+    "053 Natuurwetenschappen",
+    "054 Wiskunde en statistiek",
+    "061 Informatica",
+    "071 Techniek en technische dienstverlening",
+    "072 Levensmiddelentechnologie",
+    "073 Architectuur en bouwkunde",
+    "081 Landbouw",
+    "082 Bosbouw",
+    "083 Visserij",
+    "084 Diergeneeskunde en -verzorging",
+    "091 Gezondheidszorg",
+    "092 Welzijn",
+    "101 Persoonlijke dienstverlening",
+    "102 Hygiëne en arbeidsomstandigheden",
+    "103 Openbare veiligheid",
+    "104 Transport en logistiek",
+    "Onderwijsrichting onbekend"
   ),
   duo_field = c(
     "onderwijs",
     "taal en cultuur",
+    "taal en cultuur",
+    "taal en cultuur",
     "gedrag en maatschappij",
-    "economie",                                  # 041 -> economie (was missing!)
-    "recht",                                     # 042 -> recht
+    "gedrag en maatschappij",
+    "economie",
+    "recht",
+    "natuur",
+    "natuur",
+    "natuur",
     "natuur",
     "techniek",
+    "techniek",
+    "techniek",
+    "techniek",
     "landbouw en natuurlijke omgeving",
-    "gezondheidszorg"
+    "landbouw en natuurlijke omgeving",
+    "landbouw en natuurlijke omgeving",
+    "landbouw en natuurlijke omgeving",
+    "gezondheidszorg",
+    "gezondheidszorg",
+    "sectoroverstijgend",
+    "sectoroverstijgend",
+    "sectoroverstijgend",
+    "sectoroverstijgend",
+    "sectoroverstijgend"
   )
 )
 
-# Map CBS shares to DUO field names, dropping unmatched fields
+# Map CBS shares to DUO field names (aggregates sub-fields to DUO level)
 field_shares <- cbs_share %>%
   inner_join(cbs_field_map, by = "studierichting") %>%
-  select(onderdeel = duo_field, year, share_int)
+  group_by(duo_field, year) %>%
+  summarise(share_int = weighted.mean(share_int, total_seniors, na.rm = TRUE),
+            .groups = "drop") %>%
+  rename(onderdeel = duo_field)
 ```
 
 # 4. Process CBS -> Nationality Shares (2010, per AEA 10-year lag)
