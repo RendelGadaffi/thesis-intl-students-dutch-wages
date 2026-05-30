@@ -1310,7 +1310,27 @@ kable(f_table_edu, caption = "First-Stage F-Statistics: WO vs HBO",
   kable_styling(latex_options = "hold_position")
 ```
 
-## 15.3 2SLS by Education Level
+## 15.3 OLS by Education Level
+
+```{r edu-ols}
+# WO OLS
+ols_wo <- feols(log_income ~ share_int + age + age_sq + education_years +
+                  hours_worked + hours_sq + partner | duo_field,
+                data = wo, cluster = ~duo_field)
+# HBO OLS
+ols_hbo <- feols(log_income ~ share_int + age + age_sq + education_years +
+                   hours_worked + hours_sq + partner | duo_field,
+                 data = hbo, cluster = ~duo_field)
+
+list("WO (OLS)" = ols_wo, "HBO (OLS)" = ols_hbo) %>%
+  modelsummary(stars = TRUE, estimate = "{estimate} ({std.error}){stars}",
+               statistic = NULL, gof_map = c("nobs", "r.squared"),
+               output = "data.frame") %>%
+  kable(caption = "OLS: WO vs HBO Subsamples", booktabs = TRUE) %>%
+  kable_styling(latex_options = "hold_position")
+```
+
+## 15.4 2SLS by Education Level
 
 ```{r edu-iv}
 # WO 2SLS
@@ -1331,7 +1351,7 @@ list("WO (2SLS)" = iv_wo, "HBO (2SLS)" = iv_hbo) %>%
   kable_styling(latex_options = "hold_position")
 ```
 
-## 15.4 Reduced Form by Education Level
+## 15.5 Reduced Form by Education Level
 
 ```{r edu-rf}
 rf_wo <- feols(log_income ~ Z_visa_field + age + age_sq + education_years +
