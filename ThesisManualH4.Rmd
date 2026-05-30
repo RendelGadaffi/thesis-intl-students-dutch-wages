@@ -1248,3 +1248,103 @@ list("RF-Visa (Std)" = rf_visa_z) %>%
         caption = "Standardized Reduced Form: Instruments -> Log Income") %>%
   kable_styling(latex_options = "hold_position")
 ```
+
+# 15. Subsample Analysis: University (WO) vs Professional (HBO)
+
+## 15.1 Derive Education Level
+
+```{r edu-level}
+# Derive WO/HBO from education_years:
+#   16 = HBO (professional bachelor)
+#   15 = WO bachelor, 17 = WO master, 21 = PhD
+est_data <- est_data %>%
+  mutate(edu_level = case_when(
+    education_years == 16 ~ "HBO",
+    education_years %in% c(15, 17, 21) ~ "WO",
+    TRUE ~ "Other"
+  ))
+
+wo  <- est_data %>% filter(edu_level == "WO")
+hbo <- est_data %>% filter(edu_level == "HBO")
+
+cat("WO observations:", nrow(wo), "| Fields:", n_distinct(wo$duo_field), "\n")
+cat("HBO observations:", nrow(hbo), "| Fields:", n_distinct(hbo$duo_field), "\n")
+
+# Descriptive comparison
+est_data %>%
+  filter(edu_level %in% c("WO", "HBO")) %>%
+  group_by(edu_level) %>%
+  summarise(N = sprintf("%d", n()),
+            `Log Income` = sprintf("%.3f (%.3f)", mean(log_income), sd(log_income)),
+            `Share Intl` = sprintf("%.3f (%.3f)", mean(share_int), sd(share_int)),
+            `Age` = sprintf("%.1f (%.1f)", mean(age), sd(age)),
+            .groups = "drop") %>%
+  kable(caption = "Descriptive Statistics: WO vs HBO", booktabs = TRUE) %>%
+  kable_styling(latex_options = "hold_position")
+```
+
+## 15.2 First Stage by Education Level
+
+```{r edu-firststage, results='asis'}
+# WO first stage
+fs_wo <- feols(share_int ~ Z_visa_field + age + age_sq + education_years +
+                 hours_worked + hours_sq + partner | duo_field,
+               data = wo, cluster = ~duo_field)
+invisible(capture.output(f_wo <- wald(fs_wo, "Z_visa_field")$stat))
+
+# HBO first stage
+fs_hbo <- feols(share_int ~ Z_visa_field + age + age_sq + education_years +
+                  hours_worked + hours_sq + partner | duo_field,
+                data = hbo, cluster = ~duo_field)
+invisible(capture.output(f_hbo <- wald(fs_hbo, "Z_visa_field")$stat))
+
+# Table
+f_table_edu <- data.frame(
+  Subsample = c("WO (University)", "HBO (Professional)"),
+  `F-statistic` = c(round(f_wo, 1), round(f_hbo, 1)),
+  `# Fields` = c(n_distinct(wo$duo_field), n_distinct(hbo$duo_field)),
+  check.names = FALSE
+)
+kable(f_table_edu, caption = "First-Stage F-Statistics: WO vs HBO",
+      booktabs = TRUE, digits = 1) %>%
+  kable_styling(latex_options = "hold_position")
+```
+
+## 15.3 2SLS by Education Level
+
+```{r edu-iv}
+# WO 2SLS
+iv_wo <- feols(log_income ~ age + age_sq + education_years + hours_worked +
+                 hours_sq + partner | duo_field |
+                 share_int ~ Z_visa_field, data = wo, cluster = ~duo_field)
+# HBO 2SLS
+iv_hbo <- feols(log_income ~ age + age_sq + education_years + hours_worked +
+                  hours_sq + partner | duo_field |
+                  share_int ~ Z_visa_field, data = hbo, cluster = ~duo_field)
+
+# Side-by-side table
+list("WO (2SLS)" = iv_wo, "HBO (2SLS)" = iv_hbo) %>%
+  modelsummary(stars = TRUE, estimate = "{estimate} ({std.error}){stars}",
+               statistic = NULL, gof_map = c("nobs", "r.squared"),
+               output = "data.frame") %>%
+  kable(caption = "2SLS: WO vs HBO Subsamples", booktabs = TRUE) %>%
+  kable_styling(latex_options = "hold_position")
+```
+
+## 15.4 Reduced Form by Education Level
+
+```{r edu-rf}
+rf_wo <- feols(log_income ~ Z_visa_field + age + age_sq + education_years +
+                 hours_worked + hours_sq + partner | duo_field,
+               data = wo, cluster = ~duo_field)
+rf_hbo <- feols(log_income ~ Z_visa_field + age + age_sq + education_years +
+                  hours_worked + hours_sq + partner | duo_field,
+                data = hbo, cluster = ~duo_field)
+
+list("WO (RF)" = rf_wo, "HBO (RF)" = rf_hbo) %>%
+  modelsummary(stars = TRUE, estimate = "{estimate} ({std.error}){stars}",
+               statistic = NULL, gof_map = c("nobs", "r.squared"),
+               output = "data.frame") %>%
+  kable(caption = "Reduced Form: WO vs HBO", booktabs = TRUE) %>%
+  kable_styling(latex_options = "hold_position")
+```
