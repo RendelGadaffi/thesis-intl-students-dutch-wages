@@ -189,7 +189,10 @@ english_kw <- c("studies", "science", "engineering", "management", "economics", 
                 "geography", "entrepreneurship", "cultural", "human", "theology",
                 "neuroscience", "informatics", "mathematics", "physics", "chemistry",
                 "biology", "history", "philosophy", "linguistics", "literature",
-                "artificial", "intelligence", "spatial", "planning", "biomedical", "molecular", "information", "natural")
+                "artificial", "intelligence", "spatial", "planning", "biomedical", "molecular", "information", "natural",
+                "pharmaceutical", "biotechnology", "nanotechnology", "astronomy", "ecology",
+                "hydrology", "robotics", "oncology", "epidemiology", "forensic",
+                "technical", "industrial", "applied", "earth", "medical", "joint")
 
 dutch_kw <- c("wetenschappen", "kunde", "onderwijs", "bestuur", "gedrag", "maatschappij",
               "geneeskunde", "tandheelkunde", "rechten", "economie", "bedrijfskunde",
