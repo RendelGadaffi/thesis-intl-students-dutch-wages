@@ -138,8 +138,8 @@ for (i in seq_along(visa_files)) {
   nl <- df %>%
     filter(if_any(contains("schengen"), ~ str_detect(., regex("Netherlands|Nederland", ignore_case = TRUE)))) %>%
     select(
-      country = country_of_nationality,     # or "country" / "consulate"
-      not_issued_rate = not_issued_rate,    # or "rejection_rate" / "refusal_rate"
+      country = matches("country|consul|nationality"),
+      not_issued_rate = matches("not.*issued|rejection|refusal"),
       year
     ) %>%
     mutate(
