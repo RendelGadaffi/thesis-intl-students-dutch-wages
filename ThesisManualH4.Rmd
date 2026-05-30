@@ -931,12 +931,12 @@ kable(f_table, caption = "First-Stage F-Statistics by Subsample",
 ```{r het-iv}
 # -- 2SLS: STEM subsample -----------------------------------------------------
 iv_stem <- feols(log_income ~ age + age_sq + education_years + hours_worked +
-                   hours_sq + partner + | survey_year |
+                   hours_sq + partner | survey_year |
                    share_int ~ Z_visa_field,
                  data = est_data %>% filter(stem == TRUE), cluster = ~duo_field)
 # -- 2SLS: Non-STEM subsample -------------------------------------------------
 iv_nonstem <- feols(log_income ~ age + age_sq + education_years + hours_worked +
-                      hours_sq + partner + | survey_year |
+                      hours_sq + partner | survey_year |
                       share_int ~ Z_visa_field,
                     data = est_data %>% filter(stem == FALSE), cluster = ~duo_field)
 
@@ -955,7 +955,7 @@ list("Non-STEM (2SLS)" = iv_nonstem, "STEM (2SLS)" = iv_stem) %>%
 # -- Test whether the reduced-form effect differs by STEM status ---------------
 rf_interact <- feols(log_income ~ Z_visa_field * stem +
                        age + age_sq + education_years + hours_worked +
-                       hours_sq + partner + | survey_year,
+                       hours_sq + partner | survey_year,
                      data = est_data, cluster = ~duo_field)
 
 list("Reduced Form x STEM" = rf_interact) %>%
@@ -971,11 +971,11 @@ list("Reduced Form x STEM" = rf_interact) %>%
 ```{r het-ols}
 # -- OLS within each subsample (naive comparison, for reference) --------------
 ols_stem <- feols(log_income ~ share_int + age + age_sq + education_years +
-                    hours_worked + hours_sq + partner + |
+                    hours_worked + hours_sq + partner |
                     survey_year, data = est_data %>% filter(stem == TRUE),
                   cluster = ~duo_field)
 ols_nonstem <- feols(log_income ~ share_int + age + age_sq + education_years +
-                       hours_worked + hours_sq + partner + |
+                       hours_worked + hours_sq + partner |
                        survey_year, data = est_data %>% filter(stem == FALSE),
                      cluster = ~duo_field)
 
@@ -994,13 +994,13 @@ list("OLS (STEM)" = ols_stem, "OLS (Non-STEM)" = ols_nonstem) %>%
 
 # -- STEM subsample: single-instrument IV models --------------------------
 iv_visa_stem <- feols(log_income ~ age + age_sq + education_years + hours_worked +
-                        hours_sq + partner + | survey_year |
+                        hours_sq + partner | survey_year |
                         share_int ~ Z_visa_field,
                       data = est_data %>% filter(stem == TRUE), cluster = ~duo_field)
 
 # -- Non-STEM subsample: single-instrument IV models ----------------------
 iv_visa_nonstem <- feols(log_income ~ age + age_sq + education_years + hours_worked +
-                           hours_sq + partner + | survey_year |
+                           hours_sq + partner | survey_year |
                            share_int ~ Z_visa_field,
                          data = est_data %>% filter(stem == FALSE), cluster = ~duo_field)
 ```
@@ -1016,12 +1016,12 @@ panel_nonstem <- list("OLS" = ols_nonstem, "IV-Visa" = iv_visa_nonstem)
 # -- Compute subsample-specific F-stats for the comprehensive table ------------
 # STEM: visa-only first stage
 fs_v_stem <- feols(share_int ~ Z_visa_field + age + age_sq + education_years +
-                     hours_worked + hours_sq + partner + | survey_year,
+                     hours_worked + hours_sq + partner | survey_year,
                    data = est_data %>% filter(stem == TRUE), cluster = ~duo_field)
 invisible(capture.output(f_v_stem <- wald(fs_v_stem, "Z_visa_field")$stat))
 # Non-STEM: visa-only first stage
 fs_v_ns <- feols(share_int ~ Z_visa_field + age + age_sq + education_years +
-                   hours_worked + hours_sq + partner + | survey_year,
+                   hours_worked + hours_sq + partner | survey_year,
                  data = est_data %>% filter(stem == FALSE), cluster = ~duo_field)
 invisible(capture.output(f_v_ns <- wald(fs_v_ns, "Z_visa_field")$stat))
 
