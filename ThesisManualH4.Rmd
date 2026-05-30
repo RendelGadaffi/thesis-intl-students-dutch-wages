@@ -181,19 +181,7 @@ DUO_long <- DUO_all %>%
   )
 
 # -- Classify programs as international (English-taught) vs Dutch-taught ------
-# Use full English lexicon (hunspell) + Dutch keyword list. Classify by higher count.
-dutch_kw <- c("wetenschappen", "kunde", "onderwijs", "bestuur", "gedrag", "maatschappij",
-              "geneeskunde", "tandheelkunde", "rechten", "economie", "bedrijfskunde",
-              "gezondheid", "zorg", "techniek", "voltijd", "deeltijd", "duaal", "recht",
-              "beheer", "studie", "opleiding", "natuur", "theologie", "taal",
-              "sociologie", "psychologie", "politicologie", "filosofie", "geschiedenis",
-              "communicatie", "communicatiewetenschap", "criminologie", "antropologie",
-              "archeologie", "geografie", "planologie", "informatica", "technologie",
-              "onderwijswetenschappen", "bestuurskunde", "cultuurwetenschappen",
-              "diergeneeskunde", "aardwetenschappen", "bewegingswetenschappen",
-              "klinische", "medische", "sociale", "talen", "culturen", "educatie",
-              "betrekkingen", "organisatie", "beleid", "rechtsgeleerdheid", "religiewetenschappen")
-
+# Uses full lexicons via hunspell (en_US + nl_NL). Classify by higher count.
 prog_class <- tibble(opleidingsnaam = unique(DUO_long$opleidingsnaam)) %>%
   mutate(
     english_count = map_int(opleidingsnaam, ~ {
