@@ -181,29 +181,46 @@ DUO_long <- DUO_all %>%
   )
 
 # -- Classify programs as international (English-taught) vs Dutch-taught ------
-# Uses full lexicons via hunspell (en_US + nl_NL). Classify by higher count.
-prog_class <- tibble(opleidingsnaam = unique(DUO_long$opleidingsnaam)) %>%
-  mutate(
-    english_count = map_int(opleidingsnaam, ~ {
-      words <- tolower(.) %>% str_split("[^a-z]") %>% unlist()
-      words <- words[nchar(words) > 1]
-      if (length(words) == 0) return(0)
-      sum(hunspell::hunspell_check(words, dict = "en_US"))
-    }),
-    dutch_count = map_int(opleidingsnaam, ~ {
-      words <- tolower(.) %>% str_split("[^a-z]") %>% unlist()
-      words <- words[nchar(words) > 1]
-      if (length(words) == 0) return(0)
-      dict_nl <- hunspell::dictionary("dictionaries/nl.dic", affix = "dictionaries/nl.aff")
-      sum(hunspell::hunspell_check(words, dict = dict_nl))
-    }),
-    is_international = english_count > dutch_count
-  )
+english_kw <- c("studies", "science", "engineering", "management", "economics", "business",
+                "international", "global", "european", "research", "development", "technology",
+                "policy", "law", "health", "sustainability", "innovation", "governance",
+                "leadership", "psychology", "sociology", "anthropology", "communication",
+                "and", "the", "of", "for", "data", "design", "media",
+                "geography", "entrepreneurship", "cultural", "human", "theology",
+                "neuroscience", "informatics", "mathematics", "physics", "chemistry",
+                "biology", "history", "philosophy", "linguistics", "literature",
+                "artificial", "intelligence", "spatial", "planning", "biomedical", "molecular", "information", "natural",
+                "pharmaceutical", "biotechnology", "nanotechnology", "astronomy", "ecology",
+                "hydrology", "robotics", "oncology", "epidemiology", "forensic",
+                "technical", "industrial", "applied", "earth", "medical", "joint",
+                "environmental", "animal", "biobased", "finance", "marketing",
+                "humanistiek", "literatuurwetenschap", "natuurkunde", "organisatiewetenschap", "wiskunde",
+                "farmacie", "change")
 
-# Flag close cases for manual review (difference of 0 or 1)
-close_cases <- prog_class %>%
-  filter(abs(english_count - dutch_count) <= 1) %>%
-  arrange(desc(english_count + dutch_count))
+dutch_kw <- c("wetenschappen", "kunde", "onderwijs", "bestuur", "gedrag", "maatschappij",
+              "geneeskunde", "tandheelkunde", "rechten", "economie", "bedrijfskunde",
+              "gezondheid", "zorg", "techniek", "voltijd", "deeltijd", "duaal", "recht",
+              "beheer", "studie", "opleiding", "natuur", "theologie", "taal",
+              "sociologie", "psychologie", "politicologie", "filosofie", "geschiedenis",
+              "communicatie", "communicatiewetenschap", "criminologie", "antropologie",
+              "archeologie", "geografie", "planologie", "informatica", "technologie",
+              "onderwijswetenschappen", "bestuurskunde", "cultuurwetenschappen",
+              "diergeneeskunde", "aardwetenschappen", "bewegingswetenschappen",
+              "klinische", "medische", "sociale", "talen", "culturen", "educatie",
+              "betrekkingen", "organisatie", "beleid", "rechtsgeleerdheid", "religiewetenschappen",
+              "master", "ad", "therapie", "therapies", "leiderschap", "performing", "arts",
+              "frontend", "design", "development", "operationeel", "smart", "media",
+              "event", "experience", "accountmanagement", "sales", "iot", "internet")
+
+prog_class <- tibble(opleidingsnaam = unique(DUO_long$opleidingsnaam)) %>%
+  mutate(is_international = sapply(opleidingsnaam, function(nm) {
+    words <- tolower(nm) %>% str_split("[^a-z]") %>% unlist()
+    words <- words[nchar(words) > 1]
+    if (length(words) == 0) return(NA)
+    eng <- sum(words %in% english_kw)
+    dut <- sum(words %in% dutch_kw)
+    eng > dut && eng >= 1
+  }))
 
 DUO_long <- DUO_long %>% left_join(prog_class, by = "opleidingsnaam")
 
