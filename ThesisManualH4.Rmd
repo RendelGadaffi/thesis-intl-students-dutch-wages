@@ -1251,29 +1251,85 @@ list("RF-Visa (Std)" = rf_visa_z) %>%
 
 # 15. Subsample Analysis: University (WO) vs Professional (HBO)
 
-## 15.1 Derive Education Level
+## 15.0 Derive Clean WO/HBO Flag from Raw LISS Data
 
-```{r edu-level}
-# Derive WO/HBO from education_years:
-#   16 = HBO (professional bachelor)
-#   15 = WO bachelor, 17 = WO master, 21 = PhD
+```{r edu-flag}
+# Read raw education data directly for all waves to build a clean wo flag.
+# This bypasses the incomplete regex mapping in the LISS parsers.
+
+base_liss <- "../../../Data/LISS Work and Schooling/Extracted"
+
+# Early waves (2020-2021): text-based education
+early_files <- list(
+  "2020" = file.path(base_liss, "cw20m_EN_1.0p.csv"),
+  "2021" = file.path(base_liss, "cw21n_EN_1.0p.csv")
+)
+
+edu_raw <- map_dfr(names(early_files), function(yr) {
+  df <- read.csv(early_files[[yr]], check.names = FALSE, nrows = 1)
+  edu_col <- grep("highest level of education", names(df), value = TRUE, ignore.case = TRUE)[1]
+  
+  df <- read.csv(early_files[[yr]], check.names = FALSE)
+  edu_text <- as.character(df[[edu_col]])
+  nomem <- as.character(df[[1]])
+  
+  tibble(
+    nomem_encr = nomem,
+    survey_year = as.integer(yr),
+    wo_flag = case_when(
+      grepl("^hbo|^teacher training|^conservatory|^art academy", edu_text, ignore.case = TRUE) ~ "HBO",
+      grepl("academic|^university|doctor|ph.d|phd", edu_text, ignore.case = TRUE) ~ "WO",
+      TRUE ~ "Other"
+    )
+  )
+})
+
+# Late waves (2022-2024): numeric edu codes
+late_years <- c("2022" = "o", "2023" = "p", "2024" = "q")
+
+for (yr in names(late_years)) {
+  wave_letter <- late_years[[yr]]
+  prefix <- paste0("cw", substr(yr, 3, 4), wave_letter)
+  path <- file.path(base_liss, paste0(prefix, "_EN_1.0p.csv"))
+  if (yr == "2023") path <- file.path(base_liss, paste0(prefix, "_EN_2.0p.csv"))
+  
+  if (file.exists(path)) {
+    df <- read.csv(path, sep = ";", check.names = FALSE)
+    edu_col <- paste0(prefix, "525")
+    
+    if (edu_col %in% names(df)) {
+      edu_code <- as.numeric(df[[edu_col]])
+      nomem <- as.character(df[[1]])
+      
+      edu_raw <- bind_rows(edu_raw, tibble(
+        nomem_encr = nomem,
+        survey_year = as.integer(yr),
+        wo_flag = case_when(
+          edu_code == 7 ~ "HBO",
+          edu_code %in% 8:10 ~ "WO",
+          TRUE ~ "Other"
+        )
+      ))
+    }
+  }
+}
+
+# Merge into est_data by (nomem_encr, survey_year)
 est_data <- est_data %>%
-  mutate(edu_level = case_when(
-    education_years == 16 ~ "HBO",
-    education_years %in% c(15, 17, 21) ~ "WO",
-    TRUE ~ "Other"
-  ))
+  left_join(edu_raw, by = c("nomem_encr", "survey_year")) %>%
+  mutate(wo_flag = coalesce(wo_flag, "Other"))
 
-wo  <- est_data %>% filter(edu_level == "WO")
-hbo <- est_data %>% filter(edu_level == "HBO")
+wo  <- est_data %>% filter(wo_flag == "WO")
+hbo <- est_data %>% filter(wo_flag == "HBO")
 
 cat("WO observations:", nrow(wo), "| Fields:", n_distinct(wo$duo_field), "\n")
 cat("HBO observations:", nrow(hbo), "| Fields:", n_distinct(hbo$duo_field), "\n")
+cat("Other:", sum(est_data$wo_flag == "Other"), "\n")
 
 # Descriptive comparison
 est_data %>%
-  filter(edu_level %in% c("WO", "HBO")) %>%
-  group_by(edu_level) %>%
+  filter(wo_flag %in% c("WO", "HBO")) %>%
+  group_by(wo_flag) %>%
   summarise(N = sprintf("%d", n()),
             `Log Income` = sprintf("%.3f (%.3f)", mean(log_income), sd(log_income)),
             `Share Intl` = sprintf("%.3f (%.3f)", mean(share_int), sd(share_int)),
@@ -1283,7 +1339,7 @@ est_data %>%
   kable_styling(latex_options = "hold_position")
 ```
 
-## 15.2 First Stage by Education Level
+## 15.1 First Stage by Education Level
 
 ```{r edu-firststage, results='asis'}
 # WO first stage
@@ -1310,7 +1366,7 @@ kable(f_table_edu, caption = "First-Stage F-Statistics: WO vs HBO",
   kable_styling(latex_options = "hold_position")
 ```
 
-## 15.3 OLS by Education Level
+## 15.2 OLS by Education Level
 
 ```{r edu-ols}
 # WO OLS
@@ -1330,7 +1386,7 @@ list("WO (OLS)" = ols_wo, "HBO (OLS)" = ols_hbo) %>%
   kable_styling(latex_options = "hold_position")
 ```
 
-## 15.4 2SLS by Education Level
+## 15.3 2SLS by Education Level
 
 ```{r edu-iv}
 # WO 2SLS
@@ -1351,7 +1407,7 @@ list("WO (2SLS)" = iv_wo, "HBO (2SLS)" = iv_hbo) %>%
   kable_styling(latex_options = "hold_position")
 ```
 
-## 15.5 Reduced Form by Education Level
+## 15.4 Reduced Form by Education Level
 
 ```{r edu-rf}
 rf_wo <- feols(log_income ~ Z_visa_field + age + age_sq + education_years +
@@ -1367,4 +1423,48 @@ list("WO (RF)" = rf_wo, "HBO (RF)" = rf_hbo) %>%
                output = "data.frame") %>%
   kable(caption = "Reduced Form: WO vs HBO", booktabs = TRUE) %>%
   kable_styling(latex_options = "hold_position")
+```
+
+## 15.5 STEM vs Non-STEM Within WO and HBO
+
+```{r edu-stem-split}
+# Create four-way splits
+wo_stem  <- wo  %>% filter(stem == TRUE)
+wo_nstem <- wo  %>% filter(stem == FALSE)
+hbo_stem  <- hbo %>% filter(stem == TRUE)
+hbo_nstem <- hbo %>% filter(stem == FALSE)
+
+cat("WO + STEM:", nrow(wo_stem),  "| Fields:", n_distinct(wo_stem$duo_field),  "\n")
+cat("WO + Non-STEM:", nrow(wo_nstem), "| Fields:", n_distinct(wo_nstem$duo_field), "\n")
+cat("HBO + STEM:", nrow(hbo_stem),  "| Fields:", n_distinct(hbo_stem$duo_field),  "\n")
+cat("HBO + Non-STEM:", nrow(hbo_nstem), "| Fields:", n_distinct(hbo_nstem$duo_field), "\n")
+
+# Run first stage + 2SLS for any group with >= 100 obs
+run_if <- function(label, data) {
+  if (nrow(data) < 100 || n_distinct(data$duo_field) < 2) {
+    cat("Skipping", label, "- insufficient data\n")
+    return()
+  }
+  
+  fs <- feols(share_int ~ Z_visa_field + age + age_sq + education_years +
+                hours_worked + hours_sq + partner | duo_field,
+              data = data, cluster = ~duo_field)
+  iv <- feols(log_income ~ age + age_sq + education_years + hours_worked +
+                hours_sq + partner | duo_field |
+                share_int ~ Z_visa_field, data = data, cluster = ~duo_field)
+  
+  cat("\n###", label, "\n\n")
+  list("First Stage" = fs, "2SLS" = iv) %>%
+    modelsummary(stars = TRUE, estimate = "{estimate} ({std.error}){stars}",
+                 statistic = NULL, gof_map = c("nobs", "r.squared"),
+                 output = "data.frame") %>%
+    kable(booktabs = TRUE, caption = label) %>%
+    kable_styling(latex_options = "hold_position")
+  cat("\n")
+}
+
+run_if("WO + STEM", wo_stem)
+run_if("WO + Non-STEM", wo_nstem)
+run_if("HBO + STEM", hbo_stem)
+run_if("HBO + Non-STEM", hbo_nstem)
 ```
