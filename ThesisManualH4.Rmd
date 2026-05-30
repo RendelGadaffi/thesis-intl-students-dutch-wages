@@ -20,7 +20,7 @@ header-includes:
 # echo = FALSE:   don't print the R code itself into the PDF — only show outputs
 # warning = FALSE: suppress R warnings (they'd clutter the PDF with irrelevant noise)
 # message = FALSE: suppress package-loading messages (e.g. "Attaching package: dplyr")
-knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
 ```{r packages}
@@ -1160,126 +1160,6 @@ modelsummary(panel_nonstem, stars = TRUE,
 ```
 
 ```{r fstat-table, results='asis'}
-# ── Wild Bootstrap P-Values for STEM Subsample (manual implementation) ──
-# Only 3 clusters in STEM → cluster SEs are known to be downward biased.
-# We implement a manual wild cluster bootstrap (Rademacher weights, B = 9999)
-# to provide more reliable inference for the STEM coefficients.
-# This avoids the unmaintained fwildclusterboot package (removed from CRAN 2024).
-
-# ── Helper: safely get the IV coefficient name from a fixest model ────────────
-boot_var <- function(model, stem) {
-  coef_names <- names(coef(model))
-  if (stem %in% coef_names) return(stem)
-  prefixed <- paste0("fit_", stem)
-  if (prefixed %in% coef_names) return(prefixed)
-  matches <- grep(stem, coef_names, value = TRUE)
-  if (length(matches) > 0) return(matches[1])
-  return(stem)
-}
-coef_name <- boot_var(iv_visa_stem, "share_int")
-
-# ── Manual wild cluster bootstrap function ────────────────────────────────────
-# Takes pre-built matrices directly — no formula parsing, no fixest calls.
-# Rademacher weights v_g ~ {-1, +1}, WRE algorithm.
-wild_boot_pval <- function(y_orig, X_exog, X_endog, X_inst, cluster_var, B = 9999) {
-  clusters <- as.integer(as.factor(cluster_var))
-  G <- length(unique(clusters))
-
-  # Restricted regression under H0: Y ~ X_exog only (OLS, no IV needed)
-  rest_fit <- lm(y_orig ~ X_exog - 1)
-  e_restricted <- resid(rest_fit)
-  y_restricted <- fitted(rest_fit)
-
-  # 2SLS estimator (manual matrix algebra)
-  twosls <- function(y, exog, endog, inst) {
-    W <- cbind(exog, inst)
-    Z_hat <- W %*% solve(crossprod(W), crossprod(W, endog))
-    X <- cbind(exog, Z_hat)
-    b <- solve(crossprod(X), crossprod(X, y))
-    e <- y - cbind(exog, endog) %*% b
-    k <- ncol(X); n <- length(y)
-    se <- sqrt(diag(solve(crossprod(X))) * sum(e^2) / (n - k))
-    t_stat <- b[ncol(exog) + 1] / se[ncol(exog) + 1]
-    list(beta = b, t_stat = t_stat)
-  }
-
-  # Actual t-statistic from unrestricted 2SLS
-  actual <- twosls(y_orig, X_exog, X_endog, X_inst)
-  t_actual <- actual$t_stat
-
-  # Wild bootstrap
-  t_boot <- numeric(B)
-  for (b in seq_len(B)) {
-    v <- sample(c(-1, 1), G, replace = TRUE)
-    y_star <- y_restricted + v[clusters] * e_restricted
-    t_boot[b] <- twosls(y_star, X_exog, X_endog, X_inst)$t_stat
-  }
-
-  mean(abs(t_boot) >= abs(t_actual))
-}
-
-# ── Build matrices for STEM subsample ─────────────────────────────────────────
-est_data_stem <- est_data %>% filter(stem == TRUE)
-
-# Ensure complete cases for all bootstrap variables
-boot_vars <- c("log_income", "age", "age_sq", "education_years",
-               "hours_worked", "hours_sq", "partner", "tenure_years",
-               "survey_year", "share_int", "Z_visa_field", "Z_youth_field", "duo_field")
-est_data_stem <- est_data_stem %>% filter(if_all(all_of(boot_vars), ~ !is.na(.)))
-
-y_stem <- est_data_stem$log_income
-
-X_exog_stem <- model.matrix(~ age + age_sq + education_years + hours_worked +
-                              hours_sq + partner + tenure_years + factor(survey_year) - 1,
-                            data = est_data_stem)
-
-X_endog_stem <- as.matrix(est_data_stem$share_int)
-colnames(X_endog_stem) <- "share_int"
-
-clusters_stem <- est_data_stem$duo_field
-
-# ── Run bootstrap for all three STEM IV specs ─────────────────────────────────
-cat("\n**Manual wild cluster bootstrap (Rademacher weights, B = 9999):**\n")
-
-# IV-Visa: instrument = Z_visa_field
-X_inst_visa <- as.matrix(est_data_stem$Z_visa_field)
-colnames(X_inst_visa) <- "Z_visa_field"
-p_visa_stem <- wild_boot_pval(y_stem, X_exog_stem, X_endog_stem, X_inst_visa, clusters_stem)
-cat("  IV-Visa (STEM): wild bootstrap p =", sprintf("%.4f", p_visa_stem), "\n")
-
-# IV-Youth: instrument = Z_youth_field
-X_inst_youth <- as.matrix(est_data_stem$Z_youth_field)
-colnames(X_inst_youth) <- "Z_youth_field"
-p_youth_stem <- wild_boot_pval(y_stem, X_exog_stem, X_endog_stem, X_inst_youth, clusters_stem)
-cat("  IV-Youth (STEM): wild bootstrap p =", sprintf("%.4f", p_youth_stem), "\n")
-
-# IV-Both: instruments = Z_visa_field + Z_youth_field
-X_inst_dual <- as.matrix(est_data_stem[, c("Z_visa_field", "Z_youth_field")])
-p_dual_stem <- wild_boot_pval(y_stem, X_exog_stem, X_endog_stem, X_inst_dual, clusters_stem)
-cat("  IV-Both (STEM): wild bootstrap p =", sprintf("%.4f", p_dual_stem), "\n")
-
-# ── Comparison table: cluster SE p-values vs wild bootstrap p-values ──────────
-boot_table <- data.frame(
-  Specification = c("IV-Visa", "IV-Youth", "IV-Both"),
-  `Cluster SE p-value` = c(
-    sprintf("%.4f", summary(iv_visa_stem)$coeftable[coef_name, 4]),
-    sprintf("%.4f", summary(iv_youth_stem)$coeftable[coef_name, 4]),
-    sprintf("%.4f", summary(iv_stem)$coeftable[coef_name, 4])
-  ),
-  `Wild Bootstrap p-value` = c(
-    sprintf("%.4f", p_visa_stem),
-    sprintf("%.4f", p_youth_stem),
-    sprintf("%.4f", p_dual_stem)
-  ),
-  check.names = FALSE
-)
-
-kable(boot_table,
-      caption = "STEM Subsample: Cluster SE vs. Wild Bootstrap P-Values (B = 9999)",
-      booktabs = TRUE, digits = 4) %>%
-  kable_styling(latex_options = "hold_position")
-
-cat("\n**Note:** With only 3 STEM clusters, cluster-robust standard errors are known\nto be downward biased, producing t-statistics that over-reject the null\n(Cameron & Miller, 2015, *Journal of Human Resources*). The wild bootstrap\n(Rademacher weights, WRE algorithm) provides more reliable inference.\nIf the bootstrap p-value exceeds 0.10 while the cluster SE p-value is below 0.10,\nthe significance is likely an artifact of few clusters.\n\n")
 
 # ── Comprehensive F-stat table: all instruments × all subsamples ─────────────
 n_full <- n_distinct(est_data$duo_field)  # Total distinct fields in the full sample
@@ -1331,8 +1211,7 @@ cat("**Cluster robustness note:**\n",
     "Cluster-robust standard errors with fewer than 10 clusters are known\n",
     "to be downward biased, producing t-statistics that over-reject the null\n",
     "(Cameron & Miller, 2015). The STEM subsample results should therefore be\n",
-    "interpreted with caution; reported significance levels may overstate precision.\n",
-    "See the wild bootstrap table above for more reliable inference.\n")
+    "interpreted with caution; reported significance levels may overstate precision.\n")
 
 # ── Education imputation caveat ──────────────────────────────────────────────
 cat("**Education imputation:**\n",
