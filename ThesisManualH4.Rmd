@@ -1336,10 +1336,10 @@ list("OLS (Std)" = ols_z, "2SLS-Visa (Std)" = iv_visa_z,
         caption = "Standardized Variables: Effect of International Intensity on Log Income") %>%
   kable_styling(latex_options = "hold_position")
 
-cat("\\n**Note:** All continuous variables are standardized (mean = 0, SD = 1).\\n",
-    "Coefficients represent the change in log income (in SD units) associated\\n",
-    "with a 1-SD increase in the variable. This allows comparison of effect sizes\\n",
-    "across differently-scaled predictors.\\n")
+cat("\n**Note:** All continuous variables are standardized (mean = 0, SD = 1).\n",
+    "Coefficients represent the change in log income (in SD units) associated\n",
+    "with a 1-SD increase in the variable. This allows comparison of effect sizes\n",
+    "across differently-scaled predictors.\n")
 
 # -- Standardized: STEM vs Non-STEM Panel -------------------------------------
 cat("\n## 14.2 Standardized Results --- STEM vs Non-STEM\n\n")
