@@ -1455,19 +1455,31 @@ lag_vars   <- c("Z_visa_field_lag1", "Z_visa_field_lag2", "Z_visa_field_lag3",
                 "Z_visa_field_lag4", "Z_visa_field_lag5")
 
 fs_lag_list <- list()
-f_lag_stats <- numeric(length(lags))
+f_lag_stats <- rep(NA_real_, length(lags))
+lag_N       <- rep(NA_integer_, length(lags))
 
 for (i in seq_along(lag_vars)) {
-  # Skip estimation if the lag variable is all-NA (e.g. Lag 5 has no visa data)
-  if (all(is.na(est_data_lag[[lag_vars[i]]]))) {
-    fs_lag_list[[lag_labels[i]]] <- NULL
+  # Skip if no usable data (all NA or single-year -> collinear with FE)
+  usable <- sum(!is.na(est_data_lag[[lag_vars[i]]]))
+  n_years <- n_distinct(est_data_lag$survey_year[!is.na(est_data_lag[[lag_vars[i]]])])
+  if (usable == 0 || n_years < 2) {
+    fs_lag_list[[lag_labels[i]]] <- NA
     f_lag_stats[i] <- NA_real_
+    lag_N[i] <- NA_integer_
     next
   }
   fml <- as.formula(paste0("share_int ~ ", lag_vars[i],
                            " + age + age_sq + education_years + hours_worked + hours_sq + partner | duo_field"))
-  fs <- feols(fml, data = est_data_lag, cluster = ~duo_field)
+  fs <- tryCatch(feols(fml, data = est_data_lag, cluster = ~duo_field),
+                 error = function(e) NA)
+  if (is.logical(fs) && is.na(fs)) {
+    fs_lag_list[[lag_labels[i]]] <- NA
+    f_lag_stats[i] <- NA_real_
+    lag_N[i] <- NA_integer_
+    next
+  }
   fs_lag_list[[lag_labels[i]]] <- fs
+  lag_N[i] <- nobs(fs)
   f_lag_stats[i] <- tryCatch(
     { invisible(capture.output(s <- wald(fs, lag_vars[i])$stat)); s },
     error = function(e) NA_real_
@@ -1477,7 +1489,7 @@ for (i in seq_along(lag_vars)) {
 f_lag_table <- data.frame(
   Lag = lag_labels,
   `F-statistic` = round(f_lag_stats, 2),
-  `N` = sapply(fs_lag_list, function(m) nobs(m)),
+  N = lag_N,
   check.names = FALSE
 )
 
@@ -1493,30 +1505,39 @@ kable(f_lag_table,
 iv_lag_list <- list()
 
 for (i in seq_along(lag_vars)) {
-  if (all(is.na(est_data_lag[[lag_vars[i]]]))) {
-    iv_lag_list[[lag_labels[i]]] <- NULL
+  usable <- sum(!is.na(est_data_lag[[lag_vars[i]]]))
+  n_years <- n_distinct(est_data_lag$survey_year[!is.na(est_data_lag[[lag_vars[i]]])])
+  if (usable == 0 || n_years < 2) {
+    iv_lag_list[[lag_labels[i]]] <- NA
     next
   }
   fml <- as.formula(paste0(
     "log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | duo_field | ",
     "share_int ~ ", lag_vars[i]
   ))
-  iv <- feols(fml, data = est_data_lag, cluster = ~duo_field)
+  iv <- tryCatch(feols(fml, data = est_data_lag, cluster = ~duo_field),
+                 error = function(e) NA)
   iv_lag_list[[lag_labels[i]]] <- iv
 }
 ```
 
 ```{r lag-iv-table, results='asis'}
-all_iv <- c(list("Contemporaneous" = iv_visa), iv_lag_list)
+# Filter out NA entries so modelsummary doesn't choke
+iv_clean <- iv_lag_list[!sapply(iv_lag_list, function(x) is.logical(x) && is.na(x))]
+all_iv <- c(list("Contemporaneous" = iv_visa), iv_clean)
 
-modelsummary(all_iv, stars = TRUE,
-             estimate = "{estimate} ({std.error}){stars}",
-             statistic = NULL,
-             gof_map = c("nobs", "r.squared"),
-             output = "data.frame") %>%
-  kable(booktabs = TRUE, digits = 4,
-        caption = "2SLS: Contemporaneous vs Lagged Visa Instruments") %>%
-  kable_styling(latex_options = "hold_position")
+if (length(all_iv) > 1) {
+  modelsummary(all_iv, stars = TRUE,
+               estimate = "{estimate} ({std.error}){stars}",
+               statistic = NULL,
+               gof_map = c("nobs", "r.squared"),
+               output = "data.frame") %>%
+    kable(booktabs = TRUE, digits = 4,
+          caption = "2SLS: Contemporaneous vs Lagged Visa Instruments") %>%
+    kable_styling(latex_options = "hold_position")
+} else {
+  cat("No lagged instruments could be estimated (insufficient within-field variation).\n")
+}
 ```
 
 ## 16.5 Reduced Form with Lagged Instruments
@@ -1525,30 +1546,38 @@ modelsummary(all_iv, stars = TRUE,
 rf_lag_list <- list()
 
 for (i in seq_along(lag_vars)) {
-  if (all(is.na(est_data_lag[[lag_vars[i]]]))) {
-    rf_lag_list[[lag_labels[i]]] <- NULL
+  usable <- sum(!is.na(est_data_lag[[lag_vars[i]]]))
+  n_years <- n_distinct(est_data_lag$survey_year[!is.na(est_data_lag[[lag_vars[i]]])])
+  if (usable == 0 || n_years < 2) {
+    rf_lag_list[[lag_labels[i]]] <- NA
     next
   }
   fml <- as.formula(paste0(
     "log_income ~ ", lag_vars[i],
     " + age + age_sq + education_years + hours_worked + hours_sq + partner | duo_field"
   ))
-  rf <- feols(fml, data = est_data_lag, cluster = ~duo_field)
+  rf <- tryCatch(feols(fml, data = est_data_lag, cluster = ~duo_field),
+                 error = function(e) NA)
   rf_lag_list[[lag_labels[i]]] <- rf
 }
 ```
 
 ```{r lag-rf-table, results='asis'}
-all_rf <- c(list("Contemporaneous" = rf_visa), rf_lag_list)
+rf_clean <- rf_lag_list[!sapply(rf_lag_list, function(x) is.logical(x) && is.na(x))]
+all_rf <- c(list("Contemporaneous" = rf_visa), rf_clean)
 
-modelsummary(all_rf, stars = TRUE,
-             estimate = "{estimate} ({std.error}){stars}",
-             statistic = NULL,
-             gof_map = c("nobs", "r.squared"),
-             output = "data.frame") %>%
-  kable(booktabs = TRUE, digits = 4,
-        caption = "Reduced Form: Contemporaneous vs Lagged Instruments") %>%
-  kable_styling(latex_options = "hold_position")
+if (length(all_rf) > 1) {
+  modelsummary(all_rf, stars = TRUE,
+               estimate = "{estimate} ({std.error}){stars}",
+               statistic = NULL,
+               gof_map = c("nobs", "r.squared"),
+               output = "data.frame") %>%
+    kable(booktabs = TRUE, digits = 4,
+          caption = "Reduced Form: Contemporaneous vs Lagged Instruments") %>%
+    kable_styling(latex_options = "hold_position")
+} else {
+  cat("No lagged reduced forms could be estimated.\n")
+}
 ```
 
 ## 16.6 Interpretation
