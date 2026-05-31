@@ -1458,12 +1458,16 @@ fs_lag_list <- list()
 f_lag_stats <- numeric(length(lags))
 
 for (i in seq_along(lag_vars)) {
+  # Skip estimation if the lag variable is all-NA (e.g. Lag 5 has no visa data)
+  if (all(is.na(est_data_lag[[lag_vars[i]]]))) {
+    fs_lag_list[[lag_labels[i]]] <- NULL
+    f_lag_stats[i] <- NA_real_
+    next
+  }
   fml <- as.formula(paste0("share_int ~ ", lag_vars[i],
                            " + age + age_sq + education_years + hours_worked + hours_sq + partner | duo_field"))
   fs <- feols(fml, data = est_data_lag, cluster = ~duo_field)
   fs_lag_list[[lag_labels[i]]] <- fs
-  # tryCatch: wald() returns an atomic vector (NA) when estimation fails
-  # (e.g. Lag 5 is all-NA because no visa data exists for t-5)
   f_lag_stats[i] <- tryCatch(
     { invisible(capture.output(s <- wald(fs, lag_vars[i])$stat)); s },
     error = function(e) NA_real_
@@ -1489,6 +1493,10 @@ kable(f_lag_table,
 iv_lag_list <- list()
 
 for (i in seq_along(lag_vars)) {
+  if (all(is.na(est_data_lag[[lag_vars[i]]]))) {
+    iv_lag_list[[lag_labels[i]]] <- NULL
+    next
+  }
   fml <- as.formula(paste0(
     "log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | duo_field | ",
     "share_int ~ ", lag_vars[i]
@@ -1517,6 +1525,10 @@ modelsummary(all_iv, stars = TRUE,
 rf_lag_list <- list()
 
 for (i in seq_along(lag_vars)) {
+  if (all(is.na(est_data_lag[[lag_vars[i]]]))) {
+    rf_lag_list[[lag_labels[i]]] <- NULL
+    next
+  }
   fml <- as.formula(paste0(
     "log_income ~ ", lag_vars[i],
     " + age + age_sq + education_years + hours_worked + hours_sq + partner | duo_field"
