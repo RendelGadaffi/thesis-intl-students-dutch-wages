@@ -1,10 +1,11 @@
 ---
 marp: true
-theme: uu-theme
+theme: "uu-theme"
 class: lead
-size: 16:9
+size: '16:9'
 math: mathjax
 paginate: true
+output: pdf_document
 ---
 
 <!-- _class: lead -->
