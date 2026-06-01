@@ -1,0 +1,4 @@
+You have to do the three separate skills walkthrough part
+tidying datasets
+grouping supervised and unsupervised
+prediction supervised and unsupervised

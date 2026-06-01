@@ -1,0 +1,501 @@
+salary,years_experience,education,is_manager,hours_per_week,department
+58402,5.4,High School,0,31.1,Finance
+123501,28.9,High School,0,33.4,Finance
+84773,7.0,Bachelor,0,42.7,Operations
+84856,10.6,High School,1,31.7,Marketing
+109299,20.2,Master,0,41.9,Operations
+138412,27.8,Master,1,39.6,Marketing
+137892,32.1,Bachelor,0,37.6,Engineering
+140951,33.7,High School,0,42.2,Finance
+133111,29.3,Master,0,34.1,Finance
+90525,22.3,High School,0,45.4,Marketing
+85658,10.0,Master,0,25.9,Engineering
+97966,11.7,High School,1,37.1,Finance
+93066,7.8,Master,1,39.2,Engineering
+97492,6.7,Master,1,40.8,Finance
+121227,27.7,High School,1,31.3,Operations
+45240,0.6,High School,0,39.7,Marketing
+106809,27.7,High School,0,33.0,Operations
+113975,26.6,High School,0,30.2,Finance
+57209,5.4,Bachelor,0,36.3,Operations
+96145,14.5,Master,0,40.2,Operations
+145119,31.8,Master,1,38.0,Operations
+69815,8.1,High School,0,35.8,Engineering
+63749,4.0,Bachelor,0,38.1,Operations
+67265,8.6,Bachelor,0,46.0,Marketing
+121010,34.6,High School,0,39.3,Engineering
+54666,2.2,Master,0,39.8,Operations
+99008,12.6,Bachelor,0,40.2,Marketing
+111241,32.2,Bachelor,0,44.0,Finance
+73020,8.4,High School,1,41.1,Marketing
+83066,7.0,Master,0,35.8,Engineering
+129700,26.9,Bachelor,1,37.2,Engineering
+111170,20.7,Master,0,46.6,Operations
+129472,34.0,Bachelor,0,32.7,Operations
+62505,1.2,Master,0,35.1,Engineering
+122670,29.0,Master,0,42.6,Operations
+126343,34.7,High School,0,45.3,Engineering
+69913,2.2,Master,0,39.5,Marketing
+80971,2.1,Bachelor,1,42.2,Marketing
+62174,2.4,High School,0,39.3,Engineering
+90988,11.0,Master,0,38.4,Finance
+68851,8.6,Bachelor,0,43.4,Operations
+108451,15.0,Master,1,47.2,Operations
+104677,19.9,Master,0,44.3,Engineering
+73691,4.6,Bachelor,0,32.1,Finance
+76855,18.1,High School,0,41.7,Engineering
+117535,29.9,Bachelor,0,36.4,Operations
+118223,34.8,High School,0,46.6,Operations
+95917,8.1,Bachelor,1,39.2,Finance
+82854,10.0,Master,0,29.0,Engineering
+117298,20.7,High School,1,34.4,Engineering
+59700,5.9,Bachelor,0,33.8,Marketing
+123938,18.7,Master,0,36.4,Finance
+72077,6.7,Bachelor,0,30.0,Engineering
+76035,4.3,High School,1,36.1,Marketing
+104303,21.3,High School,1,35.5,Operations
+113881,26.4,High School,1,44.9,Engineering
+138001,33.0,High School,0,48.0,Finance
+51244,10.1,High School,0,38.7,Marketing
+105873,28.8,Bachelor,0,31.2,Engineering
+43141,5.5,High School,0,35.4,Marketing
+126238,32.3,Master,0,43.8,Finance
+138288,31.5,High School,1,40.8,Operations
+106192,24.2,Bachelor,1,30.4,Marketing
+133100,34.4,Bachelor,1,24.0,Finance
+101487,26.1,High School,0,41.1,Engineering
+81525,13.0,High School,0,37.5,Marketing
+121586,28.7,Bachelor,0,46.3,Operations
+83951,8.9,Master,0,30.8,Finance
+92023,23.2,High School,0,32.4,Operations
+77826,12.5,Master,0,43.5,Operations
+120864,27.3,Master,0,36.0,Operations
+80731,4.9,Bachelor,0,39.6,Finance
+70986,1.4,Bachelor,1,37.7,Marketing
+132196,34.7,High School,0,40.0,Engineering
+98816,8.7,Bachelor,1,33.4,Finance
+102505,15.8,Master,0,44.7,Finance
+131545,28.1,Bachelor,1,42.4,Operations
+107274,23.0,High School,0,43.0,Finance
+103276,19.1,Master,0,38.5,Finance
+76072,8.1,Bachelor,0,31.2,Engineering
+34173,3.5,High School,0,31.8,Marketing
+118877,23.1,High School,1,26.5,Engineering
+110974,21.7,Bachelor,0,36.3,Engineering
+83271,9.6,Master,0,41.2,Marketing
+106618,23.1,Master,0,41.4,Marketing
+101601,2.2,High School,1,48.5,Engineering
+104039,27.6,Bachelor,0,42.3,Marketing
+72752,9.2,Master,0,41.4,Operations
+112452,28.5,Bachelor,0,35.0,Engineering
+102384,19.5,Bachelor,0,41.7,Finance
+118496,34.5,Bachelor,0,29.9,Engineering
+82785,9.3,Bachelor,0,39.3,Marketing
+85737,7.0,Bachelor,1,41.1,Operations
+137131,26.3,High School,1,36.9,Engineering
+91989,15.8,High School,1,32.1,Marketing
+110727,33.4,High School,0,33.9,Operations
+86568,11.9,High School,1,23.7,Marketing
+95607,14.4,Master,0,29.6,Finance
+124614,31.0,Bachelor,0,42.8,Operations
+91398,14.8,Bachelor,0,44.6,Operations
+112740,31.1,High School,0,29.4,Finance
+128021,34.8,Bachelor,0,35.4,Operations
+79953,7.4,Bachelor,0,47.5,Engineering
+111463,22.5,Bachelor,0,41.0,Finance
+75155,3.8,Bachelor,0,39.7,Finance
+156352,33.9,Master,1,39.5,Operations
+87995,24.9,High School,0,45.5,Engineering
+105597,18.3,Bachelor,0,41.1,Engineering
+87527,10.0,Master,0,48.1,Engineering
+54601,3.5,Bachelor,0,40.7,Marketing
+141420,34.9,Bachelor,0,39.4,Operations
+95469,24.0,Bachelor,0,39.0,Marketing
+75029,6.2,Master,0,38.6,Operations
+89285,17.4,High School,0,32.9,Finance
+73541,5.7,Bachelor,0,37.3,Engineering
+71560,7.2,High School,0,37.1,Engineering
+71652,10.4,High School,0,36.6,Marketing
+102226,26.3,Master,0,30.6,Operations
+97307,18.0,High School,0,34.5,Finance
+106132,28.4,Master,0,32.9,Operations
+84439,21.1,Bachelor,0,37.4,Marketing
+84203,7.5,Master,0,33.3,Finance
+104775,28.1,Bachelor,0,33.7,Marketing
+104616,24.0,Bachelor,0,35.7,Finance
+84495,12.9,High School,0,38.1,Engineering
+125638,32.1,Bachelor,0,47.1,Operations
+89144,16.4,High School,0,35.6,Finance
+53306,1.1,Bachelor,0,31.5,Operations
+89255,19.2,Bachelor,0,41.0,Operations
+73619,10.1,Bachelor,0,42.9,Operations
+103040,27.4,High School,0,41.9,Finance
+89631,19.7,Bachelor,0,37.5,Operations
+102185,12.4,Bachelor,1,37.3,Engineering
+106213,19.2,Bachelor,0,36.9,Finance
+77248,14.3,High School,0,39.5,Marketing
+141913,33.4,High School,1,43.8,Finance
+73279,3.1,Bachelor,1,25.8,Engineering
+53439,3.8,Bachelor,0,33.7,Operations
+88320,17.2,Bachelor,0,38.9,Engineering
+132056,33.4,Master,0,27.9,Finance
+51133,3.8,High School,0,36.7,Marketing
+109657,31.6,High School,0,36.0,Marketing
+133355,32.1,Bachelor,0,38.5,Finance
+124681,34.7,High School,0,26.9,Operations
+93119,16.5,High School,0,34.1,Engineering
+103314,23.3,Master,0,37.4,Operations
+134179,31.1,Bachelor,1,35.5,Operations
+106746,16.4,Master,0,41.9,Engineering
+91477,12.3,Bachelor,0,33.2,Finance
+73599,1.0,Master,1,38.4,Marketing
+72617,2.7,Bachelor,1,33.1,Marketing
+85200,16.1,High School,0,35.8,Operations
+102899,16.9,Master,0,32.6,Engineering
+55695,2.2,High School,0,34.7,Finance
+127097,27.0,Master,0,31.5,Finance
+88890,13.7,High School,1,48.8,Marketing
+115303,29.3,Bachelor,0,39.7,Engineering
+121207,29.0,Bachelor,0,29.6,Finance
+104008,21.7,Bachelor,0,44.5,Finance
+99558,14.0,Bachelor,1,40.8,Engineering
+86171,10.4,Master,0,30.1,Operations
+135670,29.2,Master,1,29.8,Marketing
+41183,1.4,Bachelor,0,29.0,Engineering
+155068,32.4,Bachelor,1,46.1,Operations
+77479,16.1,Bachelor,0,35.8,Operations
+111959,24.6,Bachelor,0,29.5,Operations
+69498,10.2,High School,0,41.4,Operations
+113874,32.2,High School,0,52.7,Finance
+94623,8.7,Master,1,32.9,Marketing
+94359,21.1,Bachelor,0,40.3,Engineering
+113310,29.8,Bachelor,0,40.9,Marketing
+98792,16.6,Bachelor,0,35.9,Engineering
+119341,34.7,High School,0,29.3,Operations
+93563,23.5,High School,0,36.1,Engineering
+78627,12.5,Bachelor,0,32.5,Finance
+81362,13.4,Bachelor,0,25.0,Operations
+102942,17.0,Master,0,42.3,Engineering
+93123,20.4,Master,0,35.6,Marketing
+87489,12.3,Bachelor,0,33.6,Finance
+104235,28.5,Bachelor,0,41.5,Operations
+68454,7.1,Bachelor,0,45.7,Finance
+81031,9.2,Bachelor,1,34.9,Engineering
+127767,22.7,High School,1,48.4,Finance
+83230,10.8,Master,0,32.4,Engineering
+135053,34.4,Bachelor,0,51.7,Finance
+63015,2.3,Bachelor,0,38.9,Finance
+117509,23.3,High School,0,33.9,Engineering
+91064,16.8,Master,0,40.0,Operations
+129133,25.0,Bachelor,1,33.6,Engineering
+74576,9.6,Bachelor,0,43.3,Operations
+117409,29.7,High School,0,31.7,Marketing
+82234,14.4,High School,0,40.3,Operations
+70578,14.2,High School,0,20.0,Finance
+99175,16.9,Bachelor,0,33.1,Finance
+44910,0.3,High School,0,27.3,Finance
+63582,2.3,Master,0,48.7,Marketing
+69636,0.8,Master,0,50.4,Finance
+87768,12.8,Bachelor,0,28.8,Finance
+116416,18.8,Master,1,48.9,Operations
+77381,10.4,Bachelor,0,28.3,Engineering
+80812,9.3,Master,0,43.2,Operations
+138519,34.4,High School,1,41.4,Engineering
+63689,7.6,Master,0,36.7,Marketing
+117102,33.9,Bachelor,0,44.5,Operations
+75836,2.0,Master,1,34.6,Finance
+62236,0.6,Bachelor,0,38.2,Finance
+56298,6.6,High School,0,31.7,Marketing
+150676,34.6,Master,1,44.0,Operations
+60815,4.3,Bachelor,0,46.6,Finance
+140035,29.5,Bachelor,1,41.8,Engineering
+93113,17.1,Bachelor,0,35.4,Operations
+72436,9.1,High School,0,47.8,Engineering
+65306,6.2,High School,0,45.4,Operations
+76322,18.8,Master,0,41.5,Engineering
+58329,3.6,Master,0,27.5,Operations
+103794,22.2,Bachelor,0,35.0,Marketing
+98291,21.9,Bachelor,0,29.7,Finance
+110367,25.4,Bachelor,0,39.2,Finance
+131428,33.8,Bachelor,0,27.8,Finance
+65500,6.3,High School,0,54.0,Operations
+129975,31.5,Bachelor,0,46.8,Engineering
+155265,32.5,Master,1,42.7,Finance
+108905,20.1,Master,0,41.3,Finance
+116731,29.5,Bachelor,0,32.3,Marketing
+95649,21.6,High School,0,46.2,Operations
+143423,34.8,High School,1,46.0,Finance
+70797,1.5,Master,0,35.2,Finance
+91411,13.0,High School,0,44.2,Engineering
+71009,0.2,Master,0,31.1,Engineering
+99061,22.3,Bachelor,0,33.0,Marketing
+100113,15.8,Master,0,49.0,Finance
+64448,8.7,Bachelor,0,34.3,Marketing
+80310,11.2,Master,0,43.9,Marketing
+111551,11.1,Bachelor,1,49.7,Finance
+70616,13.3,High School,0,44.1,Operations
+75467,14.1,High School,0,30.7,Marketing
+87880,9.3,Master,0,50.1,Engineering
+127506,24.7,Bachelor,1,38.3,Finance
+109579,23.6,High School,1,39.9,Engineering
+82851,14.4,Bachelor,0,42.9,Operations
+144265,30.0,Master,1,33.8,Engineering
+114485,26.6,Master,0,43.3,Operations
+108478,27.2,High School,0,32.9,Marketing
+77303,13.6,High School,0,34.1,Marketing
+125277,31.5,High School,0,41.4,Finance
+127895,28.3,Master,1,33.7,Marketing
+89409,19.4,High School,0,28.5,Operations
+113908,29.8,Bachelor,0,37.5,Marketing
+125221,32.1,Bachelor,0,31.0,Engineering
+133203,32.6,Bachelor,0,33.2,Engineering
+120626,20.2,Bachelor,1,33.8,Marketing
+105606,19.3,Master,0,36.7,Marketing
+128859,27.0,Master,1,35.7,Marketing
+65229,4.7,High School,0,31.5,Finance
+115758,26.1,Bachelor,0,26.7,Finance
+83648,15.5,Bachelor,0,42.4,Engineering
+125301,19.5,Bachelor,1,47.2,Engineering
+123635,31.6,Bachelor,0,43.3,Engineering
+139973,33.5,Master,0,53.6,Engineering
+98389,13.9,Master,0,43.9,Engineering
+73905,5.2,Bachelor,0,35.4,Operations
+106852,23.6,High School,0,60.0,Finance
+76510,18.6,High School,0,35.7,Operations
+117162,28.8,Bachelor,0,36.5,Engineering
+86851,13.6,Bachelor,0,35.7,Finance
+85387,16.5,Bachelor,0,43.7,Marketing
+52530,1.0,Master,0,37.3,Operations
+94358,19.3,High School,0,35.4,Operations
+109477,22.5,Bachelor,0,49.7,Operations
+80356,8.5,Bachelor,0,37.9,Engineering
+83339,18.9,Bachelor,0,25.3,Engineering
+121509,24.5,High School,1,44.7,Engineering
+85132,12.7,High School,0,35.5,Finance
+66086,14.7,High School,0,37.0,Operations
+53558,4.0,High School,0,38.7,Marketing
+136706,29.2,Bachelor,1,42.5,Engineering
+108603,21.6,Master,0,45.3,Finance
+65129,9.8,High School,0,39.3,Finance
+53961,2.8,Master,0,29.5,Marketing
+73309,12.9,High School,0,43.2,Finance
+78436,13.7,High School,0,32.7,Marketing
+55206,5.0,High School,0,43.0,Engineering
+115540,24.7,Master,0,33.1,Operations
+106924,26.0,Bachelor,0,32.5,Engineering
+98304,21.5,High School,0,40.7,Finance
+136581,28.1,Master,0,39.4,Engineering
+106096,28.0,Bachelor,0,41.9,Operations
+135396,26.4,Master,1,36.3,Marketing
+118835,27.2,Bachelor,0,38.4,Operations
+97881,20.0,High School,0,30.7,Engineering
+108591,28.7,Bachelor,0,36.3,Finance
+72942,14.0,High School,0,41.2,Engineering
+101864,17.9,Bachelor,0,37.7,Finance
+83350,15.2,Bachelor,0,45.4,Marketing
+114161,25.6,Master,0,34.3,Marketing
+89383,6.4,High School,1,30.8,Marketing
+123462,28.9,High School,0,46.0,Finance
+108278,25.9,Bachelor,0,50.3,Operations
+79864,16.1,High School,0,37.6,Engineering
+112780,29.1,Bachelor,0,49.7,Marketing
+105835,24.2,High School,0,42.1,Engineering
+118603,34.9,High School,0,39.9,Operations
+111587,30.1,Bachelor,0,33.5,Engineering
+76309,11.6,High School,0,36.8,Engineering
+76564,7.5,Master,0,38.4,Marketing
+68117,3.8,Bachelor,0,38.8,Finance
+61509,7.6,High School,0,42.5,Marketing
+88827,14.3,High School,0,54.7,Operations
+111449,28.3,Bachelor,0,36.1,Engineering
+106179,19.5,Bachelor,1,42.6,Engineering
+107030,20.5,Master,0,41.3,Marketing
+48931,1.6,High School,0,44.5,Operations
+100611,24.9,Bachelor,0,41.5,Finance
+35764,5.2,High School,0,28.7,Operations
+101443,18.5,Bachelor,0,42.6,Engineering
+79214,1.5,Master,0,34.2,Operations
+102223,22.6,High School,0,30.4,Engineering
+107005,22.6,Bachelor,0,46.5,Finance
+77991,8.0,High School,0,44.6,Finance
+62312,0.2,Master,0,30.1,Marketing
+97034,13.7,Bachelor,1,42.6,Operations
+90380,13.4,Bachelor,0,38.1,Finance
+93698,19.7,Bachelor,0,44.4,Marketing
+48934,4.0,High School,0,36.0,Marketing
+95519,19.5,Bachelor,0,28.6,Finance
+133277,29.1,Master,0,41.6,Finance
+125522,33.1,Bachelor,0,35.4,Engineering
+70451,1.9,Bachelor,0,44.7,Finance
+107029,24.2,High School,1,28.6,Finance
+121370,33.2,High School,0,38.7,Engineering
+74371,15.6,Master,0,31.2,Marketing
+77519,5.8,Bachelor,0,47.4,Finance
+99943,26.8,High School,0,42.8,Operations
+124177,33.2,Master,0,29.2,Marketing
+86221,7.7,Bachelor,1,35.1,Marketing
+127485,30.2,Master,0,37.6,Operations
+98968,24.1,Bachelor,0,44.9,Marketing
+103405,13.0,Master,1,43.7,Engineering
+87651,9.9,Bachelor,0,44.4,Finance
+75477,11.0,Bachelor,0,36.5,Marketing
+142069,31.5,Bachelor,1,34.0,Operations
+82799,4.8,Bachelor,0,35.1,Finance
+115484,26.3,Master,0,27.2,Engineering
+87925,5.6,Bachelor,1,31.5,Marketing
+98053,15.7,Bachelor,0,35.1,Engineering
+61704,10.5,High School,0,25.7,Operations
+104444,26.1,High School,0,48.5,Marketing
+85504,4.5,Master,0,39.0,Finance
+107385,21.1,Bachelor,0,46.2,Operations
+86652,15.9,Master,0,35.7,Marketing
+111420,27.2,Bachelor,0,36.2,Marketing
+57803,9.7,Bachelor,0,46.5,Operations
+147650,34.2,Master,1,37.9,Engineering
+127415,24.3,Master,0,39.6,Operations
+93588,20.3,Bachelor,0,37.4,Marketing
+68473,3.6,High School,0,49.8,Operations
+118354,16.6,Master,1,36.2,Marketing
+115938,30.9,High School,0,50.0,Marketing
+94982,27.4,Bachelor,0,27.0,Operations
+146133,26.8,Master,1,28.9,Finance
+63624,4.4,Bachelor,0,51.0,Engineering
+105996,24.1,Bachelor,0,32.3,Finance
+89904,5.8,Master,1,36.1,Engineering
+51680,4.9,Bachelor,0,40.3,Marketing
+142522,34.4,Bachelor,1,30.7,Marketing
+67008,9.7,Bachelor,0,37.8,Marketing
+49997,0.5,High School,0,37.4,Engineering
+70867,6.5,High School,0,36.1,Finance
+91847,14.9,Master,0,37.5,Marketing
+76216,14.5,High School,0,35.6,Operations
+103740,17.0,Master,0,42.3,Finance
+130991,30.8,Bachelor,0,45.8,Operations
+107476,23.7,High School,0,41.2,Marketing
+105764,16.9,Master,1,34.1,Finance
+83932,16.8,Bachelor,0,49.6,Engineering
+73990,6.5,Master,0,42.8,Engineering
+82288,14.3,Bachelor,0,41.9,Operations
+61160,11.5,Master,0,29.3,Marketing
+83788,13.5,High School,0,41.7,Finance
+73946,17.7,Bachelor,0,39.7,Operations
+71358,12.4,Bachelor,0,46.6,Finance
+121883,18.9,Master,1,30.0,Engineering
+113268,23.7,Bachelor,0,37.7,Finance
+139936,33.0,Master,0,43.6,Engineering
+140159,32.2,High School,1,29.6,Marketing
+106905,21.4,Bachelor,0,36.1,Engineering
+71468,6.6,Master,0,37.0,Marketing
+139882,34.1,Bachelor,0,38.9,Engineering
+106682,24.2,Master,0,35.3,Marketing
+92759,16.0,Bachelor,0,34.0,Operations
+72857,8.8,Bachelor,0,38.5,Finance
+117401,32.0,High School,0,45.4,Operations
+131679,31.5,Master,0,35.2,Operations
+52987,2.4,Bachelor,0,34.4,Finance
+68239,4.9,Bachelor,0,39.6,Operations
+77034,8.0,Bachelor,0,32.2,Finance
+116919,28.3,High School,0,45.6,Engineering
+94987,8.9,High School,1,36.7,Finance
+116045,22.6,High School,0,43.5,Finance
+113656,20.0,Bachelor,0,50.3,Finance
+61697,4.4,Bachelor,0,38.9,Operations
+68624,9.1,High School,0,35.0,Operations
+116594,25.0,Master,0,41.9,Operations
+133045,32.8,Master,0,34.2,Engineering
+109728,26.3,Bachelor,0,44.4,Marketing
+100461,20.3,Bachelor,0,42.8,Operations
+69648,12.7,High School,0,36.7,Marketing
+119635,23.8,High School,0,48.4,Finance
+124608,26.0,Master,0,42.9,Marketing
+79770,11.2,High School,0,32.8,Engineering
+101531,23.0,Bachelor,0,42.4,Marketing
+109228,17.3,Master,0,44.6,Marketing
+147243,34.2,Bachelor,0,35.4,Finance
+144451,30.1,High School,1,35.6,Finance
+69593,9.4,High School,0,32.5,Engineering
+114428,23.9,High School,1,43.2,Engineering
+107775,21.7,High School,0,37.4,Finance
+87735,9.4,Bachelor,1,30.8,Marketing
+96476,11.5,Master,0,38.8,Finance
+108762,29.6,High School,0,20.8,Engineering
+103410,13.4,Master,0,39.4,Engineering
+110502,21.8,Master,0,29.7,Finance
+115350,24.9,Bachelor,0,38.8,Finance
+131536,33.9,Bachelor,0,25.4,Operations
+140574,30.3,Master,1,36.7,Operations
+100822,21.2,Bachelor,0,43.2,Engineering
+141956,34.9,Master,0,46.3,Engineering
+113134,28.2,Bachelor,0,34.1,Marketing
+95534,22.8,Master,0,37.3,Operations
+80543,12.8,Bachelor,0,37.1,Operations
+138136,34.3,Bachelor,1,30.9,Engineering
+106518,23.7,Bachelor,0,38.8,Finance
+73577,8.2,Master,0,34.8,Operations
+116942,22.9,Master,0,29.7,Finance
+92147,11.3,Master,0,35.2,Finance
+89930,16.7,Bachelor,0,40.4,Engineering
+97433,17.9,Master,0,51.8,Marketing
+41348,0.3,High School,0,24.4,Operations
+75967,5.4,High School,1,38.2,Marketing
+56008,9.8,High School,0,39.7,Marketing
+87233,9.8,Bachelor,1,41.8,Operations
+53936,2.9,High School,0,33.1,Finance
+94631,17.9,Bachelor,0,44.5,Finance
+98037,19.7,Master,0,34.1,Operations
+130352,31.0,Master,1,34.1,Operations
+51302,6.5,High School,0,40.2,Marketing
+80317,11.2,Master,0,26.3,Finance
+102409,14.0,Bachelor,1,32.7,Engineering
+134952,31.3,High School,0,29.4,Finance
+101280,25.2,High School,0,39.0,Engineering
+128031,33.5,Master,0,31.9,Marketing
+118774,25.0,Bachelor,1,51.2,Marketing
+74398,3.3,Master,0,28.5,Finance
+70077,7.9,Bachelor,0,46.4,Engineering
+129622,33.2,Bachelor,1,40.5,Finance
+123193,24.5,Master,1,42.4,Marketing
+85848,12.1,Bachelor,0,46.3,Finance
+153494,33.5,Master,0,44.5,Finance
+139543,30.6,Bachelor,1,27.3,Engineering
+132471,34.9,Master,0,27.0,Operations
+106236,15.9,Master,0,36.3,Finance
+119635,32.6,Bachelor,0,47.7,Marketing
+112785,19.3,Bachelor,0,38.5,Finance
+94413,20.1,Bachelor,0,39.7,Finance
+105122,9.3,Master,1,44.5,Finance
+82198,16.2,High School,0,42.3,Operations
+99010,20.3,Bachelor,0,41.9,Engineering
+67343,3.1,High School,0,40.0,Finance
+89738,13.2,Bachelor,1,34.3,Marketing
+59176,11.0,Bachelor,0,32.2,Marketing
+108452,20.2,Bachelor,0,38.3,Engineering
+80202,14.7,High School,0,41.7,Engineering
+32897,4.0,Bachelor,0,23.1,Marketing
+85289,6.9,Master,0,37.0,Finance
+93656,9.3,Bachelor,1,32.3,Finance
+143875,28.7,Master,1,29.6,Marketing
+109849,31.5,Bachelor,0,32.4,Marketing
+70354,15.2,High School,0,39.2,Engineering
+71389,15.0,High School,0,38.6,Marketing
+85428,7.0,Master,0,36.8,Finance
+92379,20.6,Bachelor,0,33.7,Engineering
+112268,28.3,Bachelor,0,41.8,Marketing
+69696,8.3,High School,0,45.9,Operations
+85611,8.6,Bachelor,1,35.9,Operations
+117543,22.1,Bachelor,1,39.0,Engineering
+112074,27.1,High School,0,40.7,Finance
+104261,12.7,Bachelor,0,56.3,Finance
+105618,17.6,Master,0,37.6,Engineering
+96688,12.2,Bachelor,1,42.8,Marketing
+82546,6.5,Bachelor,0,27.1,Finance
+62174,2.3,Bachelor,0,39.4,Marketing
+71421,9.9,High School,0,32.1,Marketing
+70539,7.3,Bachelor,1,40.3,Marketing
+95986,21.6,Bachelor,0,33.8,Operations
+62020,3.0,High School,0,39.6,Finance
+94708,22.9,Bachelor,0,27.5,Operations
+99756,22.3,Master,0,38.0,Operations
+113134,24.8,High School,0,42.8,Engineering
+142043,30.4,Bachelor,1,46.2,Marketing
+135048,30.6,Master,0,24.6,Finance

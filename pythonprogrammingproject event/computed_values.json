@@ -1,0 +1,182 @@
+{
+  "messy_rows": 504,
+  "messy_colnames": [
+    "Annual Salary ($)",
+    "Years Experience",
+    "Education Level",
+    "Manager? (1=Yes)",
+    "Hours/Week",
+    "Department",
+    "Department_Code",
+    "Education_Numeric"
+  ],
+  "messy_head_str": "   Annual Salary ($)  Years Experience Education Level  Manager? (1=Yes)  Hours/Week  Department Department_Code  Education_Numeric\n0            58402.0               5.4     High School                 0        31.1     Finance       FIN:::NCE                  1\n1           123501.0              28.9     High School                 0        33.4     Finance       FIN:::NCE                  1\n2            84773.0               7.0        Bachelor                 0        42.7  Operations       OPE:::ONS                  2\n3            84856.0              10.6     High School                 1        31.7   Marketing       MAR:::ING                  1\n4           109299.0              20.2          Master                 0        41.9  Operations       OPE:::ONS                  3",
+  "messy_info_str": "Annual Salary ($)    float64\nYears Experience     float64\nEducation Level          str\nManager? (1=Yes)       int64\nHours/Week           float64\nDepartment               str\nDepartment_Code          str\nEducation_Numeric      int64\ndtype: object",
+  "n_missing": 25,
+  "clean_colnames": [
+    "salary",
+    "experience",
+    "education",
+    "is_manager",
+    "hours",
+    "department",
+    "dept_code",
+    "edu_code"
+  ],
+  "after_dropna": 479,
+  "dupes_removed": 3,
+  "after_dedup": 476,
+  "n_outliers": 1,
+  "outlier_salary": 856580.0,
+  "q99_salary": 151380.5,
+  "final_rows": 475,
+  "final_cols": 7,
+  "salary_mean": 97077.0,
+  "salary_std": 25355.0,
+  "salary_min": 32897.0,
+  "salary_max": 156352.0,
+  "exp_mean": 18.1,
+  "hours_mean": 38.0,
+  "mgr_pct": 18.9,
+  "edu_counts": {
+    "Bachelor": 201,
+    "High School": 144,
+    "Master": 130
+  },
+  "seg_rows": 400,
+  "gb_spend": {
+    "Budget Shopper": 1238.5,
+    "Premium Loyalist": 4453.7,
+    "Whale": 9377.1
+  },
+  "gb_visits": {
+    "Budget Shopper": 14.2,
+    "Premium Loyalist": 9.8,
+    "Whale": 6.0
+  },
+  "gb_basket": {
+    "Budget Shopper": 21.9,
+    "Premium Loyalist": 53.5,
+    "Whale": 117.1
+  },
+  "gb_loyalty": {
+    "Budget Shopper": 2.7,
+    "Premium Loyalist": 7.3,
+    "Whale": 5.1
+  },
+  "ct_budget": [
+    0,
+    159,
+    1
+  ],
+  "ct_premium": [
+    1,
+    7,
+    132
+  ],
+  "ct_whale": [
+    92,
+    0,
+    8
+  ],
+  "inertias": [
+    1600.0,
+    832.0,
+    498.0,
+    402.0,
+    354.0,
+    312.0,
+    289.0,
+    267.0
+  ],
+  "logreg_acc": 95.8,
+  "corr_exp": 0.888,
+  "m1_r2": 0.789,
+  "m1_coef_exp": 2228.0,
+  "m1_se_exp": 53.0,
+  "m1_t_exp": 42.0,
+  "m1_p_exp": 6.798053076870019e-162,
+  "m1_ci_low": 2124.0,
+  "m1_ci_high": 2333.0,
+  "m2_r2": 0.892,
+  "m2_terms": {
+    "Intercept": {
+      "coef": 43208.0,
+      "t": 17.4,
+      "p": 7.363401662050333e-53
+    },
+    "education[T.High School]": {
+      "coef": -5123.0,
+      "t": -5.6,
+      "p": 3.652355288845446e-08
+    },
+    "education[T.Master]": {
+      "coef": 7071.0,
+      "t": 7.5,
+      "p": 3.406334102487492e-13
+    },
+    "experience": {
+      "coef": 2183.0,
+      "t": 57.2,
+      "p": 1.3063214661732779e-213
+    },
+    "is_manager": {
+      "coef": 16267.0,
+      "t": 16.5,
+      "p": 9.455330562417279e-49
+    },
+    "hours": {
+      "coef": 287.0,
+      "t": 4.7,
+      "p": 3.0704316909923387e-06
+    }
+  },
+  "m3_r2": 0.915,
+  "m3_terms": {
+    "Intercept": {
+      "coef": 44630.0,
+      "t": 19.3,
+      "p": 2.4901095706759248e-61
+    },
+    "education[T.High School]": {
+      "coef": -5088.0,
+      "t": -6.3,
+      "p": 9.271724637153074e-10
+    },
+    "education[T.Master]": {
+      "coef": 7482.0,
+      "t": 8.9,
+      "p": 1.2290343003586298e-17
+    },
+    "C(department)[T.Finance]": {
+      "coef": 3931.0,
+      "t": 4.1,
+      "p": 4.556542910666828e-05
+    },
+    "C(department)[T.Marketing]": {
+      "coef": -5956.0,
+      "t": -6.0,
+      "p": 3.5602237054208077e-09
+    },
+    "C(department)[T.Operations]": {
+      "coef": -3957.0,
+      "t": -4.0,
+      "p": 7.843132422460979e-05
+    },
+    "experience": {
+      "coef": 2167.0,
+      "t": 63.2,
+      "p": 8.550592712892238e-231
+    },
+    "is_manager": {
+      "coef": 17022.0,
+      "t": 19.2,
+      "p": 4.606996197547454e-61
+    },
+    "hours": {
+      "coef": 284.0,
+      "t": 5.3,
+      "p": 2.1934092643485443e-07
+    }
+  }
+}
