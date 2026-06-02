@@ -144,7 +144,7 @@ Consulates <- bind_rows(visa_list) %>%
 # -- CBS international-background senior share (parents born outside NL) -----
 # Uses the subgroups file with granular 3-digit CBS sub-field codes, senior year.
 # All CBS sub-fields map to one of the 11 field keys (education through services).
-# Field unknown mapped to services.
+# Field unknown set to NA (drops from merge — no bias from misassignment).
 
 base <- "../../../Data/CBS Incoming Student Ethnical Makeup"
 
@@ -237,7 +237,7 @@ cbs_field_map <- tibble(
     "services",
     "services",
     "services",
-    "services"
+    NA_character_
   )
 )
 
@@ -409,7 +409,7 @@ cbs_field_map_instr <- tibble(
                 "business_admin", "law",
                 "natural_sciences", "engineering", "engineering",
                 "agriculture", "healthcare",
-                "services", "services")
+                "services", NA_character_)
 )
 
 # -- Compute nationality shares per field-year ----------------------------------
