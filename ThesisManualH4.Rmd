@@ -273,6 +273,34 @@ nat_shares <- cbs_shares %>%
   summarise(permits = sum(permits, na.rm = TRUE), .groups = "drop") %>%  # Total permits per nationality
   mutate(share = permits / sum(permits)) %>%                   # Each nationality's share of ALL permits
   arrange(desc(share))                                         # Sort by share (largest first)
+
+# -- Map Dutch nationality names to English (for merge with IND visa data) -------
+nat_shares <- nat_shares %>%
+  mutate(country_std = case_when(
+    str_detect(nationality, "Chinees|China")          ~ "CHINA",
+    str_detect(nationality, "Indiaas|India")          ~ "INDIA",
+    str_detect(nationality, "Turks|Turkse|Turkey")    ~ "TURKEY",
+    str_detect(nationality, "Amerikaans|United States|USA") ~ "UNITED STATES",
+    str_detect(nationality, "Brits|United Kingdom")   ~ "UNITED KINGDOM",
+    str_detect(nationality, "Duits|Germany")          ~ "GERMANY",
+    str_detect(nationality, "Frans|France")           ~ "FRANCE",
+    str_detect(nationality, "Italiaans|Italy")        ~ "ITALY",
+    str_detect(nationality, "Spaans|Spain")           ~ "SPAIN",
+    str_detect(nationality, "Pools|Poland")           ~ "POLAND",
+    str_detect(nationality, "Roemeens|Romania")       ~ "ROMANIA",
+    str_detect(nationality, "Bulgaars|Bulgaria")      ~ "BULGARIA",
+    str_detect(nationality, "Grieks|Greece")          ~ "GREECE",
+    str_detect(nationality, "Portugees|Portugal")     ~ "PORTUGAL",
+    str_detect(nationality, "Hongaars|Hungary")       ~ "HUNGARY",
+    str_detect(nationality, "Litouws|Lithuania")      ~ "LITHUANIA",
+    str_detect(nationality, "Indonesisch|Indonesia")  ~ "INDONESIA",
+    str_detect(nationality, "Russisch|Russia")        ~ "RUSSIA",
+    str_detect(nationality, "Braziliaans|Brazil")     ~ "BRAZIL",
+    str_detect(nationality, "Japans|Japan")           ~ "JAPAN",
+    str_detect(nationality, "Koreaans|South Korea")   ~ "SOUTH KOREA",
+    str_detect(nationality, "Mexicaans|Mexico")       ~ "MEXICO",
+    TRUE ~ str_to_upper(nationality)
+  ))
 ```
 
 # 4b. Field × Nationality Matrix (for shift-share instrument)
@@ -318,34 +346,7 @@ intl_origin <- intl_field %>%
   inner_join(herkomst_map, by = "herkomstland") %>%
   filter(!is.na(country_std))  # drop Netherlands
 
-# -- Split Buiten-Europa using residence permit shares --------------------------
-# First, add the country_std name mapping to nat_shares (same mapping as section 5.1)
-nat_shares_mapped <- nat_shares %>%
-  mutate(country_std = case_when(
-    str_detect(nationality, "Chinees|China")          ~ "CHINA",
-    str_detect(nationality, "Indiaas|India")          ~ "INDIA",
-    str_detect(nationality, "Turks|Turkse|Turkey")    ~ "TURKEY",
-    str_detect(nationality, "Amerikaans|United States|USA") ~ "UNITED STATES",
-    str_detect(nationality, "Brits|United Kingdom")   ~ "UNITED KINGDOM",
-    str_detect(nationality, "Duits|Germany")          ~ "GERMANY",
-    str_detect(nationality, "Frans|France")           ~ "FRANCE",
-    str_detect(nationality, "Italiaans|Italy")        ~ "ITALY",
-    str_detect(nationality, "Spaans|Spain")           ~ "SPAIN",
-    str_detect(nationality, "Pools|Poland")           ~ "POLAND",
-    str_detect(nationality, "Roemeens|Romania")       ~ "ROMANIA",
-    str_detect(nationality, "Bulgaars|Bulgaria")      ~ "BULGARIA",
-    str_detect(nationality, "Grieks|Greece")          ~ "GREECE",
-    str_detect(nationality, "Portugees|Portugal")     ~ "PORTUGAL",
-    str_detect(nationality, "Hongaars|Hungary")       ~ "HUNGARY",
-    str_detect(nationality, "Litouws|Lithuania")      ~ "LITHUANIA",
-    str_detect(nationality, "Indonesisch|Indonesia")  ~ "INDONESIA",
-    str_detect(nationality, "Russisch|Russia")        ~ "RUSSIA",
-    str_detect(nationality, "Braziliaans|Brazil")     ~ "BRAZIL",
-    str_detect(nationality, "Japans|Japan")           ~ "JAPAN",
-    str_detect(nationality, "Koreaans|South Korea")   ~ "SOUTH KOREA",
-    str_detect(nationality, "Mexicaans|Mexico")       ~ "MEXICO",
-    TRUE ~ str_to_upper(nationality)
-  ))
+
 
 # Non-EU/EEA nationalities from the permit data that are NOT among the 5
 # named groups (Turkey, Morocco, Suriname, Dutch Caribbean, Indonesia).
@@ -365,7 +366,7 @@ eu_eea_countries <- c("EUROPE",
 five_named_groups <- c("TURKEY", "MOROCCO", "SURINAME",
                        "NEDERLANDSE CARIBEN", "INDONESIA")
 
-non_eu_countries <- nat_shares_mapped %>%
+non_eu_countries <- nat_shares %>%
   filter(!is.na(country_std)) %>%
   filter(!country_std %in% c(eu_eea_countries, five_named_groups, "NETHERLANDS", "NEDERLAND")) %>%
   # Re-normalize shares to sum to 1 within this non-EU group
@@ -444,36 +445,7 @@ Z_visa_field_year <- field_nat_bl %>%
 ## 5.1 Nationality Name Mapping
 
 ```{r name-map}
-# -- Standardise nationality names across datasets -----------------------------
-# CBS uses Dutch nationality names (e.g. "Chinees"), while IND visa data uses
-# English country names. This case_when block maps the Dutch names to standardised
-# English uppercase names so the two datasets can be merged.
-nat_shares <- nat_shares %>%
-  mutate(country_std = case_when(
-    str_detect(nationality, "Chinees|China")          ~ "CHINA",
-    str_detect(nationality, "Indiaas|India")          ~ "INDIA",
-    str_detect(nationality, "Turks|Turkse|Turkey")    ~ "TURKEY",
-    str_detect(nationality, "Amerikaans|United States|USA") ~ "UNITED STATES",
-    str_detect(nationality, "Brits|United Kingdom")   ~ "UNITED KINGDOM",
-    str_detect(nationality, "Duits|Germany")          ~ "GERMANY",
-    str_detect(nationality, "Frans|France")           ~ "FRANCE",
-    str_detect(nationality, "Italiaans|Italy")        ~ "ITALY",
-    str_detect(nationality, "Spaans|Spain")           ~ "SPAIN",
-    str_detect(nationality, "Pools|Poland")           ~ "POLAND",
-    str_detect(nationality, "Roemeens|Romania")       ~ "ROMANIA",
-    str_detect(nationality, "Bulgaars|Bulgaria")      ~ "BULGARIA",
-    str_detect(nationality, "Grieks|Greece")          ~ "GREECE",
-    str_detect(nationality, "Portugees|Portugal")     ~ "PORTUGAL",
-    str_detect(nationality, "Hongaars|Hungary")       ~ "HUNGARY",
-    str_detect(nationality, "Litouws|Lithuania")      ~ "LITHUANIA",
-    str_detect(nationality, "Indonesisch|Indonesia")  ~ "INDONESIA",
-    str_detect(nationality, "Russisch|Russia")        ~ "RUSSIA",
-    str_detect(nationality, "Braziliaans|Brazil")     ~ "BRAZIL",
-    str_detect(nationality, "Japans|Japan")           ~ "JAPAN",
-    str_detect(nationality, "Koreaans|South Korea")   ~ "SOUTH KOREA",
-    str_detect(nationality, "Mexicaans|Mexico")       ~ "MEXICO",
-    TRUE ~ str_to_upper(nationality)                   # For unmatched names, just uppercase the original
-  ))
+
 ```
 
 ## 5.2 Instrument 1: Visa Acceptance Rates (all countries)
