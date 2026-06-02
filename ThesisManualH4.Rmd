@@ -246,7 +246,7 @@ field_shares <- cbs_share %>%
   inner_join(cbs_field_map, by = "studierichting") %>%
   group_by(field, year) %>%
   summarise(share_int = weighted.mean(share_int, total_seniors, na.rm = TRUE),
-            .groups = "drop") %>%
+            .groups = "drop")
 ```
 
 # 4. Process CBS -> Nationality Shares (2010, per AEA 10-year lag)
