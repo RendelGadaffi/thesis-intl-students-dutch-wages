@@ -127,7 +127,11 @@ for (i in seq_along(visa_files)) {
     ) %>%
     mutate(
       acceptance_rate = 1 - not_issued_rate,
-      country = str_to_upper(str_trim(country))
+      country = str_to_upper(str_trim(country)),
+      # Turkey changed its English name to "Türkiye" in 2022.
+      # The IND files use "TURKEY" (2020-2021) and "TÜRKIYE" (2022-2024).
+      # Normalize to "TURKEY" so the inner_join with CBS country_std works.
+      country = str_replace(country, "TÜRKIYE", "TURKEY")
     )
 
   if (nrow(nl) > 0) visa_list[[i]] <- nl
@@ -564,7 +568,74 @@ Z_visa_field_agg <- field_nat_bl_agg %>%
             .groups = "drop")
 
 
-```
+# -- Correct share_int: treat Nederlandse Cariben as domestic --------------------
+# Caribbean students are Kingdom of the Netherlands citizens; they do not need
+# Schengen visas, so the visa instrument cannot shift their enrollment.
+# They should be in the denominator (total students) but NOT in the numerator
+# (international students whose enrolment responds to visa policy).
+# We subtract Cariben from the foreign count using the Intl file's breakdown.
+
+# Recover total seniors per DUO field (for subtraction arithmetic)
+total_field <- cbs_share %>%
+  inner_join(cbs_field_map, by = "studierichting") %>%
+  group_by(field, onderwijssoort, year) %>%
+  summarise(total_seniors = sum(total_seniors, na.rm = TRUE),
+            .groups = "drop")
+
+total_field_agg <- cbs_share %>%
+  inner_join(cbs_field_map, by = "studierichting") %>%
+  group_by(field, year) %>%
+  summarise(total_seniors = sum(total_seniors, na.rm = TRUE),
+            .groups = "drop")
+
+# Cariben foreign-background students per aggregate field from the Intl file
+cariben_raw <- read_delim(file.path(base, "Students by homeland, gender, FoS, Senior year, Subgroupped.csv"),
+                          delim = ";", show_col_types = FALSE) %>%
+  clean_names() %>%
+  filter(herkomstland == "Nederlandse Cariben",
+         geboorteland_ouders == "Geboren buiten Nederland") %>%
+  mutate(
+    count = as.numeric(str_trim(ouderejaarsstudenten_aantal)),
+    year = as.integer(str_sub(perioden, 1, 4))
+  ) %>%
+  filter(!is.na(count), count > 0) %>%
+  group_by(studierichting, onderwijssoort, year) %>%
+  summarise(cariben_foreign = sum(count, na.rm = TRUE), .groups = "drop")
+
+# Map to DUO fields
+cariben_field <- cariben_raw %>%
+  inner_join(cbs_field_map_instr, by = "studierichting") %>%
+  filter(!is.na(field)) %>%
+  group_by(field, onderwijssoort, year) %>%
+  summarise(cariben_foreign = sum(cariben_foreign, na.rm = TRUE), .groups = "drop")
+
+cariben_field_agg <- cariben_raw %>%
+  inner_join(cbs_field_map_instr, by = "studierichting") %>%
+  filter(!is.na(field)) %>%
+  group_by(field, year) %>%
+  summarise(cariben_foreign = sum(cariben_foreign, na.rm = TRUE), .groups = "drop")
+
+# Correct field_shares: share_int = (intl_seniors - cariben) / total_seniors
+field_shares <- field_shares %>%
+  left_join(total_field, by = c("field", "onderwijssoort", "year")) %>%
+  left_join(cariben_field, by = c("field", "onderwijssoort", "year")) %>%
+  mutate(
+    cariben_foreign = coalesce(cariben_foreign, 0),
+    share_int = (share_int * total_seniors - cariben_foreign) / total_seniors,
+    share_int = pmax(share_int, 0)
+  ) %>%
+  select(field, onderwijssoort, year, share_int)
+
+field_shares_agg <- field_shares_agg %>%
+  left_join(total_field_agg, by = c("field", "year")) %>%
+  left_join(cariben_field_agg, by = c("field", "year")) %>%
+  mutate(
+    cariben_foreign = coalesce(cariben_foreign, 0),
+    share_int = (share_int * total_seniors - cariben_foreign) / total_seniors,
+    share_int = pmax(share_int, 0)
+  ) %>%
+  select(field, year, share_int)
+
 
 # 5. Construct Instruments
 
