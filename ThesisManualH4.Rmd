@@ -347,25 +347,26 @@ nat_shares_mapped <- nat_shares %>%
     TRUE ~ str_to_upper(nationality)
   ))
 
-# Non-European nationalities from the permit data that are NOT among the 5
+# Non-EU/EEA nationalities from the permit data that are NOT among the 5
 # named groups (Turkey, Morocco, Suriname, Dutch Caribbean, Indonesia).
-# We already have the country_std mapping in nat_shares.
+# CBS codes "Europa (exclusief Nederland)" as EU/EEA aggregate, so we
+# need to exclude EU + EEA member states from the Buiten-Europa split.
+# UK excluded too (was EU during our data period).
+eu_eea_countries <- c("EUROPE",
+  "AUSTRIA", "BELGIUM", "BULGARIA", "CROATIA", "CYPRUS",
+  "CZECH REPUBLIC", "DENMARK", "ESTONIA", "FINLAND", "FRANCE",
+  "GERMANY", "GREECE", "HUNGARY", "ICELAND", "IRELAND", "ITALY",
+  "LATVIA", "LIECHTENSTEIN", "LITHUANIA", "LUXEMBOURG", "MALTA",
+  "NETHERLANDS", "NORWAY", "POLAND", "PORTUGAL", "ROMANIA",
+  "SLOVAKIA", "SLOVENIA", "SPAIN", "SWEDEN", "SWITZERLAND",
+  "UNITED KINGDOM")
+
+five_named_groups <- c("TURKEY", "MOROCCO", "SURINAME",
+                       "NEDERLANDSE CARIBEN", "INDONESIA")
+
 non_eu_countries <- nat_shares_mapped %>%
   filter(!is.na(country_std)) %>%
-  # Exclude Europe, the 5 named groups, and Netherlands
-  filter(!country_std %in% c("EUROPE", "TURKEY", "MOROCCO", "SURINAME",
-                              "NEDERLANDSE CARIBEN", "INDONESIA",
-                              "NETHERLANDS", "NEDERLAND")) %>%
-  # Also exclude obvious European countries matched by the case_when
-  filter(!country_std %in% c("GERMANY", "FRANCE", "ITALY", "SPAIN", "POLAND",
-                              "ROMANIA", "BULGARIA", "GREECE", "PORTUGAL",
-                              "HUNGARY", "LITHUANIA", "BELGIUM",
-                              "UNITED KINGDOM", "SWITZERLAND", "SWEDEN",
-                              "NORWAY", "DENMARK", "FINLAND", "AUSTRIA",
-                              "IRELAND", "CZECH REPUBLIC", "SLOVAKIA",
-                              "SLOVENIA", "CROATIA", "ESTONIA", "LATVIA",
-                              "LUXEMBOURG", "MALTA", "CYPRUS", "ICELAND",
-                              "LIECHTENSTEIN", "RUSSIA", "UKRAINE")) %>%
+  filter(!country_std %in% c(eu_eea_countries, five_named_groups, "NETHERLANDS", "NEDERLAND")) %>%
   # Re-normalize shares to sum to 1 within this non-EU group
   mutate(share_non_eu = share / sum(share)) %>%
   select(country_std, share_non_eu)
