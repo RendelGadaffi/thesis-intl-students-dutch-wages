@@ -708,6 +708,10 @@ process_early <- function(df, yr) {
   edu_yrs[grepl("academic.*master", edu_raw, ignore.case = TRUE)] <- 17              # WO master (15+2)
   edu_yrs[grepl("^academic|^university", edu_raw, ignore.case = TRUE)] <- 15         # WO (unspecified = bachelor)
   edu_yrs[grepl("doctor|phd", edu_raw, ignore.case = TRUE)] <- 21                    # PhD (17+4)
+  # Additional mappings for values present in the LISS early-wave data:
+  edu_yrs[grepl("teacher training", edu_raw, ignore.case = TRUE)] <- 16              # Pabo / teacher training = HBO (16 yrs)
+  edu_yrs[grepl("conservatory|art academy", edu_raw, ignore.case = TRUE)] <- 15      # Conservatorium = WO bachelor (15 yrs)
+  edu_yrs[grepl("special education", edu_raw, ignore.case = TRUE)] <- 10            # Special education = VMBO level (10 yrs)
 
   # -- Education level (HBO vs WO) from raw education answer --------------------
   onderwijssoort <- rep(NA_character_, nrow(df))
