@@ -247,6 +247,13 @@ field_shares <- cbs_share %>%
   group_by(field, onderwijssoort, year) %>%
   summarise(share_int = weighted.mean(share_int, total_seniors, na.rm = TRUE),
             .groups = "drop")
+
+# Aggregate share_int for the joint (pooled) specification
+field_shares_agg <- cbs_share %>%
+  inner_join(cbs_field_map, by = "studierichting") %>%
+  group_by(field, year) %>%
+  summarise(share_int = weighted.mean(share_int, total_seniors, na.rm = TRUE),
+            .groups = "drop")
 ```
 
 # 4. Process CBS -> Nationality Shares (2010, per AEA 10-year lag)
@@ -405,6 +412,11 @@ intl_field <- read_delim(file.path(base, "Students by homeland, gender, FoS, Sen
   group_by(studierichting, herkomstland, onderwijssoort, year) %>%
   summarise(count = sum(count, na.rm = TRUE), .groups = "drop")
 
+# -- Aggregate across onderwijssoort for the joint instrument -----------------
+intl_field_agg <- intl_field %>%
+  group_by(studierichting, herkomstland, year) %>%
+  summarise(count = sum(count, na.rm = TRUE), .groups = "drop")
+
 # -- Map CBS Herkomstland to English country_std used in visa data --------------
 # Keep the line count from each origin group, then split Buiten-Europa.
 # The 5 named groups are already separate from the Buiten-Europa bucket.
@@ -425,7 +437,9 @@ intl_origin <- intl_field %>%
   inner_join(herkomst_map, by = "herkomstland") %>%
   filter(!is.na(country_std))  # drop Netherlands
 
-
+intl_origin_agg <- intl_field_agg %>%
+  inner_join(herkomst_map, by = "herkomstland") %>%
+  filter(!is.na(country_std))
 
 # Non-EU/EEA nationalities from the permit data that are NOT among the 5
 # named groups (Turkey, Morocco, Suriname, Dutch Caribbean, Indonesia).
@@ -458,15 +472,28 @@ bu_count <- intl_origin %>%
   filter(country_std == "BUITEN_EUROPA") %>%
   select(studierichting, onderwijssoort, year, bu_count = count)
 
+bu_count_agg <- intl_origin_agg %>%
+  filter(country_std == "BUITEN_EUROPA") %>%
+  select(studierichting, year, bu_count = count)
+
 bu_split <- bu_count %>%
   cross_join(non_eu_countries) %>%
   mutate(count = bu_count * share_non_eu) %>%
   select(studierichting, onderwijssoort, year, country_std, count)
 
+bu_split_agg <- bu_count_agg %>%
+  cross_join(non_eu_countries) %>%
+  mutate(count = bu_count * share_non_eu) %>%
+  select(studierichting, year, country_std, count)
+
 # -- Combine all origin groups --------------------------------------------------
 intl_detailed <- intl_origin %>%
   filter(country_std != "BUITEN_EUROPA") %>%
   bind_rows(bu_split)
+
+intl_detailed_agg <- intl_origin_agg %>%
+  filter(country_std != "BUITEN_EUROPA") %>%
+  bind_rows(bu_split_agg)
 
 # -- Map CBS Studierichting to DUO field names ----------------------------------
 # For the instrument, aggregate CBS field "04" maps to both recht AND economie
@@ -503,16 +530,36 @@ field_nat_shares <- intl_detailed %>%
   mutate(share_in_field = count / sum(count)) %>%
   ungroup()
 
+field_nat_shares_agg <- intl_detailed_agg %>%
+  inner_join(cbs_field_map_instr, by = "studierichting") %>%
+  group_by(field, year, country_std) %>%
+  summarise(count = sum(count, na.rm = TRUE), .groups = "drop") %>%
+  group_by(field, year) %>%
+  mutate(share_in_field = count / sum(count)) %>%
+  ungroup()
+
 # Baseline nationality shares per field (time-invariant, from earliest year)
 field_nat_bl <- field_nat_shares %>%
   filter(year == baseline_year) %>%
   select(field, onderwijssoort, country_std, share_jf = share_in_field)
+
+field_nat_bl_agg <- field_nat_shares_agg %>%
+  filter(year == baseline_year) %>%
+  select(field, country_std, share_jf = share_in_field)
 
 # -- Construct field-specific instrument: Z_ft = sum_j(share_jf × accept_rate_jt)
 Z_visa_field_year <- field_nat_bl %>%
   inner_join(Consulates, by = c("country_std" = "country")) %>%
   filter(!is.na(acceptance_rate), !is.na(share_jf)) %>%
   group_by(field, onderwijssoort, year) %>%
+  summarise(Z_visa_field = sum(share_jf * acceptance_rate, na.rm = TRUE),
+            .groups = "drop")
+
+# Joint instrument: aggregate across onderwijssoort for the pooled specification
+Z_visa_field_agg <- field_nat_bl_agg %>%
+  inner_join(Consulates, by = c("country_std" = "country")) %>%
+  filter(!is.na(acceptance_rate), !is.na(share_jf)) %>%
+  group_by(field, year) %>%
   summarise(Z_visa_field = sum(share_jf * acceptance_rate, na.rm = TRUE),
             .groups = "drop")
 
@@ -805,13 +852,23 @@ LISS_panel <- work_all %>%
 # -- Build the final estimation dataset ---------------------------------------
 est_data <- LISS_panel %>%
   # Merge field-level international share (endogenous variable)
+  # Merge level-specific share_int (matches by field x onderwijssoort x year)
+  # Merge level-specific share_int (matches by field x onderwijssoort x year)
   left_join(field_shares, by = c("field", "onderwijssoort", "survey_year" = "year")) %>%
-  # Merge field-specific instruments (Z_visa from nationality matrix)
-  left_join(Z_visa_field_year, by = c("field", "onderwijssoort", "survey_year" = "year"))
+  # Merge aggregate share_int for the joint specification
+  left_join(field_shares_agg %>% rename(share_int_agg = share_int),
+            by = c("field", "survey_year" = "year")) %>%
+  # Merge level-specific instrument
+  left_join(Z_visa_field_year, by = c("field", "onderwijssoort", "survey_year" = "year")) %>%
+  # Merge aggregate instrument for the joint specification
+  left_join(Z_visa_field_agg %>% rename(Z_visa_field_agg = Z_visa_field),
+            by = c("field", "survey_year" = "year"))
 
 est_data <- est_data %>%
   # Drop any row missing a key variable (complete-case analysis)
-  filter(!is.na(share_int), !is.na(Z_visa_field), !is.na(log_income),
+  # Filter on aggregate vars for the main joint specification;
+  # level-specific (share_int, Z_visa_field) may have NAs for non-matched onderwijssoort
+  filter(!is.na(share_int_agg), !is.na(Z_visa_field_agg), !is.na(log_income),
          !is.na(education_years), !is.na(hours_worked), !is.na(partner))
 ```
 
@@ -827,8 +884,8 @@ est_data %>%
             `Education` = sprintf("%.1f (%.1f)", mean(education_years), sd(education_years)),
             `Hours` = sprintf("%.1f (%.1f)", mean(hours_worked, na.rm = TRUE), sd(hours_worked, na.rm = TRUE)),
             `Partner` = sprintf("%.2f (%.2f)", mean(partner, na.rm = TRUE), sd(partner, na.rm = TRUE)),
-            `Share Intl` = sprintf("%.3f (%.3f)", mean(share_int), sd(share_int)),
-            `Z_visa_field` = sprintf("%.4f (%.4f)", mean(Z_visa_field, na.rm = TRUE), sd(Z_visa_field, na.rm = TRUE)),
+            `Share Intl` = sprintf("%.3f (%.3f)", mean(share_int_agg), sd(share_int_agg)),
+            `Z_visa_field` = sprintf("%.4f (%.4f)", mean(Z_visa_field_agg, na.rm = TRUE), sd(Z_visa_field_agg, na.rm = TRUE)),
             `STEM` = sprintf("%.2f (%.2f)", mean(stem), sd(stem))) %>%
   # Reshape to vertical format (one row per statistic)
   pivot_longer(everything(), names_to = "Statistic", values_to = "Value") %>%
@@ -847,12 +904,12 @@ est_data %>%
 # feols is the fixest package's OLS estimator (fast with many fixed effects).
 # | field means field fixed effects are absorbed (projected out).
 # cluster = ~field: standard errors clustered at the field level (within-field correlation).
-fs_visa <- feols(share_int ~ Z_visa_field + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+fs_visa <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
                  data = est_data, cluster = ~field)
 
 # Extract the F-statistic for the excluded instrument: Wald test that Z_visa_field coefficient = 0.
 # invisible(capture.output(...)) suppresses fixest's verbose Wald test output.
-invisible(capture.output(f_visa <- wald(fs_visa, "Z_visa_field")$stat))
+invisible(capture.output(f_visa <- wald(fs_visa, "Z_visa_field_agg")$stat))
 
 # Print the regression table using modelsummary -> kable for LaTeX output
 list("First Stage (Visa)" = fs_visa) %>%
@@ -873,7 +930,7 @@ cat("\n**F-stat (visa instrument):**", round(f_visa, 2),
 # -- OLS (naive) regression: log_income ~ share_int + controls ----------------
 # This is the baseline --- it ignores endogeneity and will be biased if share_int
 # is correlated with unobserved determinants of wages (ability sorting, etc.).
-ols <- feols(log_income ~ share_int + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+ols <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
              data = est_data, cluster = ~field)
 ```
 
@@ -885,7 +942,7 @@ ols <- feols(log_income ~ share_int + age + age_sq + education_years + hours_wor
 # This estimates: log_income = beta x share_int_hat + Xdelta + eps, where share_int_hat
 # is the predicted value from the first stage (Z_visa_field as instrument).
 iv_visa <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | field |
-                   share_int ~ Z_visa_field, data = est_data, cluster = ~field)
+                   share_int_agg ~ Z_visa_field_agg, data = est_data, cluster = ~field)
 ```
 
 ```{r main-table, results='asis'}
@@ -938,7 +995,7 @@ est_data %>%
   summarise(
     N = n(),
     Fields = n_distinct(field),
-    `Mean Share Intl` = mean(share_int),
+    `Mean Share Intl` = mean(share_int_agg),
     `Mean Log Wage` = mean(log_income),
     `Mean Education` = mean(education_years),
     `Mean Hours` = mean(hours_worked, na.rm = TRUE),
@@ -955,16 +1012,16 @@ est_data %>%
 
 ```{r het-firststage}
 # -- STEM first stage ---------------------------------------------------------
-fs_stem <- feols(share_int ~ Z_visa_field + age + age_sq +
+fs_stem <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq +
                    education_years + hours_worked + hours_sq + partner | field,
                  data = est_data %>% filter(stem == TRUE), cluster = ~field)
-invisible(capture.output(f_stem <- wald(fs_stem, "Z_visa_field")$stat))
+invisible(capture.output(f_stem <- wald(fs_stem, "Z_visa_field_agg")$stat))
 
 # -- Non-STEM first stage -----------------------------------------------------
-fs_nonstem <- feols(share_int ~ Z_visa_field + age + age_sq +
+fs_nonstem <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq +
                       education_years + hours_worked + hours_sq + partner | field,
                     data = est_data %>% filter(stem == FALSE), cluster = ~field)
-invisible(capture.output(f_nonstem <- wald(fs_nonstem, "Z_visa_field")$stat))
+invisible(capture.output(f_nonstem <- wald(fs_nonstem, "Z_visa_field_agg")$stat))
 
 # -- Count unique fields in each subsample ------------------------------------
 n_stem <- n_distinct(est_data$field[est_data$stem == TRUE])
@@ -989,12 +1046,12 @@ kable(f_table, caption = "First-Stage F-Statistics by Subsample",
 # -- 2SLS: STEM subsample -----------------------------------------------------
 iv_stem <- feols(log_income ~ age + age_sq + education_years + hours_worked +
                    hours_sq + partner | field |
-                   share_int ~ Z_visa_field,
+                   share_int_agg ~ Z_visa_field_agg,
                  data = est_data %>% filter(stem == TRUE), cluster = ~field)
 # -- 2SLS: Non-STEM subsample -------------------------------------------------
 iv_nonstem <- feols(log_income ~ age + age_sq + education_years + hours_worked +
                       hours_sq + partner | field |
-                      share_int ~ Z_visa_field,
+                      share_int_agg ~ Z_visa_field_agg,
                     data = est_data %>% filter(stem == FALSE), cluster = ~field)
 
 # Side-by-side table
@@ -1010,7 +1067,7 @@ list("Non-STEM (2SLS)" = iv_nonstem, "STEM (2SLS)" = iv_stem) %>%
 
 ```{r het-rf-interact}
 # -- Test whether the reduced-form effect differs by STEM status ---------------
-rf_interact <- feols(log_income ~ Z_visa_field * stem +
+rf_interact <- feols(log_income ~ Z_visa_field_agg * stem +
                        age + age_sq + education_years + hours_worked +
                        hours_sq + partner | field,
                      data = est_data, cluster = ~field)
@@ -1027,11 +1084,11 @@ list("Reduced Form x STEM" = rf_interact) %>%
 
 ```{r het-ols}
 # -- OLS within each subsample (naive comparison, for reference) --------------
-ols_stem <- feols(log_income ~ share_int + age + age_sq + education_years +
+ols_stem <- feols(log_income ~ share_int_agg + age + age_sq + education_years +
                     hours_worked + hours_sq + partner |
                     survey_year, data = est_data %>% filter(stem == TRUE),
                   cluster = ~field)
-ols_nonstem <- feols(log_income ~ share_int + age + age_sq + education_years +
+ols_nonstem <- feols(log_income ~ share_int_agg + age + age_sq + education_years +
                        hours_worked + hours_sq + partner |
                        survey_year, data = est_data %>% filter(stem == FALSE),
                      cluster = ~field)
@@ -1072,12 +1129,12 @@ panel_nonstem <- list("OLS" = ols_nonstem, "IV-Visa" = iv_visa_nonstem)
 
 # -- Compute subsample-specific F-stats for the comprehensive table ------------
 # STEM: visa-only first stage
-fs_v_stem <- feols(share_int ~ Z_visa_field + age + age_sq + education_years +
+fs_v_stem <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years +
                      hours_worked + hours_sq + partner | field,
                    data = est_data %>% filter(stem == TRUE), cluster = ~field)
 invisible(capture.output(f_v_stem <- wald(fs_v_stem, "Z_visa_field")$stat))
 # Non-STEM: visa-only first stage
-fs_v_ns <- feols(share_int ~ Z_visa_field + age + age_sq + education_years +
+fs_v_ns <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years +
                    hours_worked + hours_sq + partner | field,
                  data = est_data %>% filter(stem == FALSE), cluster = ~field)
 invisible(capture.output(f_v_ns <- wald(fs_v_ns, "Z_visa_field")$stat))
@@ -1294,17 +1351,23 @@ est_data_lag <- est_data  # work on a copy, don't touch original
 
 for (L in lags) {
   col_lag <- paste0("Z_visa_field_lag", L)
+  col_lag_agg <- paste0("Z_visa_field_agg_lag", L)
   
-  # Shift years: visa year + L -> outcome year
+  # Shift years: visa year + L -> outcome year (level-specific)
   lag_df <- Z_visa_field_year
   lag_df$year <- lag_df$year + L
   names(lag_df)[4] <- col_lag
-  
-  # Merge into working dataset (will produce NAs for years with no visa match)
   est_data_lag <- est_data_lag %>%
     left_join(lag_df, by = c("field", "onderwijssoort", "survey_year" = "year"))
+  
+  # Aggregate lagged instrument (for joint specification)
+  lag_agg <- Z_visa_field_agg
+  lag_agg$year <- lag_agg$year + L
+  names(lag_agg)[3] <- col_lag_agg
+  est_data_lag <- est_data_lag %>%
+    left_join(lag_agg, by = c("field", "survey_year" = "year"))
 }
-rm(lag_df, col_lag)
+rm(lag_df, col_lag, lag_agg, col_lag_agg)
 ```
 
 ## 16.3 First Stage with Lagged Instruments
@@ -1329,7 +1392,8 @@ for (i in seq_along(lag_vars)) {
     lag_N[i] <- NA_integer_
     next
   }
-  fml <- as.formula(paste0("share_int ~ ", lag_vars[i],
+  lag_var_agg <- paste0("Z_visa_field_agg_", substr(lag_vars[i], 15, nchar(lag_vars[i])))
+  fml <- as.formula(paste0("share_int_agg ~ ", lag_var_agg,
                            " + age + age_sq + education_years + hours_worked + hours_sq + partner | field"))
   fs <- tryCatch(feols(fml, data = est_data_lag, cluster = ~field),
                  error = function(e) NA)
@@ -1342,7 +1406,7 @@ for (i in seq_along(lag_vars)) {
   fs_lag_list[[lag_labels[i]]] <- fs
   lag_N[i] <- nobs(fs)
   f_lag_stats[i] <- tryCatch(
-    { invisible(capture.output(s <- wald(fs, lag_vars[i])$stat)); s },
+    { invisible(capture.output(s <- wald(fs, lag_var_agg)$stat)); s },
     error = function(e) NA_real_
   )
 }
