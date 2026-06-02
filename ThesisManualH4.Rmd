@@ -162,7 +162,7 @@ Consulates <- bind_rows(visa_list) %>%
 
 # 3. Process DUO -> Field-Level International Share
 
-```{r process-duo}
+```{r process-duo, eval=FALSE}
 # -- Stack WO and HBO graduate data --------------------------------------------
 DUO_all <- bind_rows(GradsUni %>% mutate(level = "WO"),
                      GradsProf %>% mutate(level = "HBO"))
