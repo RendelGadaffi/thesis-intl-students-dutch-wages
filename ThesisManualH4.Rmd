@@ -577,7 +577,7 @@ Z_visa_field_agg <- field_nat_bl_agg %>%
   group_by(field, year) %>%
   summarise(Z_visa_field = sum(share_jf * acceptance_rate, na.rm = TRUE),
             .groups = "drop")
-
+```
 
 # 5. Construct Instruments
 
