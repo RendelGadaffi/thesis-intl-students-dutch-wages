@@ -566,8 +566,8 @@ Z_visa_field_agg <- field_nat_bl_agg %>%
   group_by(field, year) %>%
   summarise(Z_visa_field = sum(share_jf * acceptance_rate, na.rm = TRUE),
             .groups = "drop")
-
-
+```
+```{r cariben-correction}
 # -- Correct share_int: treat Nederlandse Cariben as domestic --------------------
 # Caribbean students are Kingdom of the Netherlands citizens; they do not need
 # Schengen visas, so the visa instrument cannot shift their enrollment.
@@ -635,7 +635,7 @@ field_shares_agg <- field_shares_agg %>%
     share_int = pmax(share_int, 0)
   ) %>%
   select(field, year, share_int)
-
+```
 
 # 5. Construct Instruments
 
