@@ -89,24 +89,24 @@ visa_files <- c(
 
 ## 1.3 DUO Graduates
 
-# ```{r duo-load}
-# # -- DUO graduate counts by institution / field / gender -----------------------
-# # DUO (Dienst Uitvoering Onderwijs) publishes yearly graduate counts broken down
-# # by institution, field of study (onderdeel), gender, and education level.
-# # Two files: WO (university) and HBO (professional bachelor).
-# #
-# # GradsUni <- read_delim(
-# #   "../../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/05.-gediplomeerden-wo-2025.csv",
-# #   delim = ";"
-# # )
-# #
-# # GradsProf <- read_delim(
-# #   "../../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/05.-gediplomeerden-hbo-2024.csv",
-# #   delim = ";"
-# # )
-# # Institution address metadata: used to geolocate institutions to provinces/cities
-# # InstitutionAddys <- read.csv("../../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/Higher education institutes location.csv", sep = ";")
-# ```
+```{r duo-load, eval=FALSE}
+# -- DUO graduate counts by institution / field / gender -----------------------
+# DUO (Dienst Uitvoering Onderwijs) publishes yearly graduate counts broken down
+# by institution, field of study (onderdeel), gender, and education level.
+# Two files: WO (university) and HBO (professional bachelor).
+
+GradsUni <- read_delim(
+  "../../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/05.-gediplomeerden-wo-2025.csv",
+  delim = ";"
+)
+
+GradsProf <- read_delim(
+  "../../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/05.-gediplomeerden-hbo-2024.csv",
+  delim = ";"
+)
+# Institution address metadata: used to geolocate institutions to provinces/cities
+InstitutionAddys <- read.csv("../../../Data/DUO Graduates by Gender, Institution, Field of  Study, University and Professional level AND The intitution's adresses/Higher education institutes location.csv", sep = ";")
+```
 
 ## 1.4 CBS Nationality Data
 
