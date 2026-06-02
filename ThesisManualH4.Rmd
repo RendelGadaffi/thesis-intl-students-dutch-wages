@@ -89,6 +89,7 @@ visa_files <- c(
 
 ## 1.3 DUO Graduates
 
+# DEPRECATED - switched to CBS subgroups file (see process-duo and later sections for active code)
 ```{r duo-load, eval=FALSE}
 # -- DUO graduate counts by institution / field / gender -----------------------
 # DUO (Dienst Uitvoering Onderwijs) publishes yearly graduate counts broken down
@@ -162,6 +163,7 @@ Consulates <- bind_rows(visa_list) %>%
 
 # 3. Process DUO -> Field-Level International Share
 
+# DEPRECATED - switched to CBS subgroups file (active code moved or handled in estimation sections)
 ```{r process-duo, eval=FALSE}
 # -- Stack WO and HBO graduate data --------------------------------------------
 DUO_all <- bind_rows(GradsUni %>% mutate(level = "WO"),
