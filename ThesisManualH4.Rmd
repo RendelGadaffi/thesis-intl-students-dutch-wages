@@ -639,13 +639,7 @@ field_shares_agg <- field_shares_agg %>%
 
 # 5. Construct Instruments
 
-## 5.1 Nationality Name Mapping
-
-```{r name-map}
-
-```
-
-## 5.2 Instrument 1: Visa Acceptance Rates (all countries)
+## 5.1 Instrument 1: Visa Acceptance Rates (all countries)
 
 ```{r instr-visa}
 # -- Shift-share instrument: Schengen visa acceptance x nationality share ------
