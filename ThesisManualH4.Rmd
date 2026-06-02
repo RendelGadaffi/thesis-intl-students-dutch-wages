@@ -351,15 +351,13 @@ nat_shares_mapped <- nat_shares %>%
 # named groups (Turkey, Morocco, Suriname, Dutch Caribbean, Indonesia).
 # CBS codes "Europa (exclusief Nederland)" as EU/EEA aggregate, so we
 # need to exclude EU + EEA member states from the Buiten-Europa split.
-# UK excluded too (was EU during our data period).
 eu_eea_countries <- c("EUROPE",
   "AUSTRIA", "BELGIUM", "BULGARIA", "CROATIA", "CYPRUS",
   "CZECH REPUBLIC", "DENMARK", "ESTONIA", "FINLAND", "FRANCE",
   "GERMANY", "GREECE", "HUNGARY", "ICELAND", "IRELAND", "ITALY",
   "LATVIA", "LIECHTENSTEIN", "LITHUANIA", "LUXEMBOURG", "MALTA",
   "NETHERLANDS", "NORWAY", "POLAND", "PORTUGAL", "ROMANIA",
-  "SLOVAKIA", "SLOVENIA", "SPAIN", "SWEDEN", "SWITZERLAND",
-  "UNITED KINGDOM")
+  "SLOVAKIA", "SLOVENIA", "SPAIN", "SWEDEN", "SWITZERLAND")
 
 five_named_groups <- c("TURKEY", "MOROCCO", "SURINAME",
                        "NEDERLANDSE CARIBEN", "INDONESIA")
