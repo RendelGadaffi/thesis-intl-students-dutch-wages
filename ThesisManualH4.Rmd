@@ -615,6 +615,12 @@ process_early <- function(df, yr) {
   edu_yrs[grepl("^academic|^university", edu_raw, ignore.case = TRUE)] <- 15         # WO (unspecified = bachelor)
   edu_yrs[grepl("doctor|phd", edu_raw, ignore.case = TRUE)] <- 21                    # PhD (17+4)
 
+  # -- Education level (HBO vs WO) from raw education answer --------------------
+  onderwijssoort <- rep(NA_character_, nrow(df))
+  onderwijssoort[grepl("hbo", edu_raw, ignore.case = TRUE)] <- "Hoger beroepsonderwijs"
+  onderwijssoort[grepl("academic.*bachelor|academic.*master|^academic|^university|doctor|phd",
+                       edu_raw, ignore.case = TRUE)] <- "Wetenschappelijk onderwijs"
+
   # -- Usual hours worked per week ---------------------------------------------
   # LISS asks "How many hours do you actually work on average?"
   hrs_col <- grep("actually work", names(df), value = TRUE, ignore.case = TRUE)[1]
@@ -631,6 +637,7 @@ process_early <- function(df, yr) {
   data.frame(nomem_encr = as.character(df$nomem_encr), survey_year = yr,
              liss_code = sel, age = as.numeric(df[[6]]),        # Column 6 contains age
              education_years = edu_yrs,
+             onderwijssoort = onderwijssoort,
              hours_worked = hours_worked,
              tenure_years = tenure_years,
              stringsAsFactors = FALSE)
@@ -690,6 +697,15 @@ process_late <- function(df, yr) {
     edu_yrs[edu_code >= 11] <- 21   # Higher (postdoc / professorship) --- cap at PhD level
   } else { edu_yrs <- rep(NA_real_, nr) }
 
+  # -- Education level (HBO vs WO) from standardized education code ------------
+  if (exists("edu_code") && length(edu_code) > 0) {
+    onderwijssoort <- rep(NA_character_, nr)
+    onderwijssoort[edu_code == 7] <- "Hoger beroepsonderwijs"
+    onderwijssoort[edu_code %in% 8:10] <- "Wetenschappelijk onderwijs"
+  } else {
+    onderwijssoort <- rep(NA_character_, nr)
+  }
+
   # -- Hours: column cwXX126 (actual hours worked per week) --------------------
   hrs_col <- paste0(prefix, "126")
   hours_worked <- if (hrs_col %in% nm) as.numeric(df[[hrs_col]]) else rep(NA_real_, nr)
@@ -707,6 +723,7 @@ process_late <- function(df, yr) {
     liss_code = sel,
     age = as.numeric(df[[age_col]]),
     education_years = edu_yrs,
+    onderwijssoort = onderwijssoort,
     hours_worked = hours_worked,
     tenure_years = tenure_years,
     stringsAsFactors = FALSE
@@ -776,11 +793,6 @@ LISS_panel <- work_all %>%
     age_sq = age^2,                                     # Quadratic age term (non-linear experience effects)
     hours_sq = hours_worked^2,                          # Quadratic hours term (non-linear labour supply)
     partner = as.logical(partner),                      # Convert partner indicator to logical TRUE/FALSE
-    onderwijssoort = case_when(
-      education_years == 16 ~ "Hoger beroepsonderwijs",
-      education_years %in% c(15, 17, 21) ~ "Wetenschappelijk onderwijs",
-      TRUE ~ NA_character_
-    ),
     # Impute missing education years with the sample median (attenuates toward zero -> conservative)
     education_years = ifelse(is.na(education_years), median(education_years, na.rm = TRUE),
                              education_years)
