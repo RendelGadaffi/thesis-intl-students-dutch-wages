@@ -159,18 +159,18 @@ cbs_raw <- read_delim(file.path(base, "Born in or out NL, FoS, gender, subgroups
 # Total seniors per field-year: sum across genders and onderwijssoort
 total_seniors <- cbs_raw %>%
   filter(!is.na(students), students > 0) %>%
-  group_by(studierichting, year) %>%
+  group_by(studierichting, onderwijssoort, year) %>%
   summarise(total_seniors = sum(students, na.rm = TRUE), .groups = "drop")
 
 # International-background seniors (parents born outside NL)
 intl_seniors <- cbs_raw %>%
   filter(geboorteland_ouders == "Geboren buiten Nederland",
          !is.na(students), students > 0) %>%
-  group_by(studierichting, year) %>%
+  group_by(studierichting, onderwijssoort, year) %>%
   summarise(intl_seniors = sum(students, na.rm = TRUE), .groups = "drop")
 
 cbs_share <- total_seniors %>%
-  left_join(intl_seniors, by = c("studierichting", "year")) %>%
+  left_join(intl_seniors, by = c("studierichting", "onderwijssoort", "year")) %>%
   mutate(
     share_int = ifelse(total_seniors > 0,
                        coalesce(intl_seniors, 0) / total_seniors, NA_real_),
@@ -244,7 +244,7 @@ cbs_field_map <- tibble(
 # Map CBS shares to DUO field names (aggregates sub-fields to DUO level)
 field_shares <- cbs_share %>%
   inner_join(cbs_field_map, by = "studierichting") %>%
-  group_by(field, year) %>%
+  group_by(field, onderwijssoort, year) %>%
   summarise(share_int = weighted.mean(share_int, total_seniors, na.rm = TRUE),
             .groups = "drop")
 ```
@@ -400,9 +400,9 @@ intl_field <- read_delim(file.path(base, "Students by homeland, gender, FoS, Sen
     count = as.numeric(str_trim(ouderejaarsstudenten_aantal)),
     year = as.integer(str_sub(perioden, 1, 4))
   ) %>%
-  # Aggregate across gender and onderwijssoort -> (studierichting, herkomstland, year)
+  # Keep onderwijssoort (HBO/WO) separate for level-specific instruments
   filter(!is.na(count), count > 0) %>%
-  group_by(studierichting, herkomstland, year) %>%
+  group_by(studierichting, herkomstland, onderwijssoort, year) %>%
   summarise(count = sum(count, na.rm = TRUE), .groups = "drop")
 
 # -- Map CBS Herkomstland to English country_std used in visa data --------------
@@ -456,12 +456,12 @@ non_eu_countries <- nat_shares %>%
 # across non-EU countries proportional to their permit share
 bu_count <- intl_origin %>%
   filter(country_std == "BUITEN_EUROPA") %>%
-  select(studierichting, year, bu_count = count)
+  select(studierichting, onderwijssoort, year, bu_count = count)
 
 bu_split <- bu_count %>%
   cross_join(non_eu_countries) %>%
   mutate(count = bu_count * share_non_eu) %>%
-  select(studierichting, year, country_std, count)
+  select(studierichting, onderwijssoort, year, country_std, count)
 
 # -- Combine all origin groups --------------------------------------------------
 intl_detailed <- intl_origin %>%
@@ -497,22 +497,22 @@ baseline_year <- min(intl_detailed$year)
 
 field_nat_shares <- intl_detailed %>%
   inner_join(cbs_field_map_instr, by = "studierichting") %>%
-  group_by(field, year, country_std) %>%
+  group_by(field, onderwijssoort, year, country_std) %>%
   summarise(count = sum(count, na.rm = TRUE), .groups = "drop") %>%
-  group_by(field, year) %>%
+  group_by(field, onderwijssoort, year) %>%
   mutate(share_in_field = count / sum(count)) %>%
   ungroup()
 
 # Baseline nationality shares per field (time-invariant, from earliest year)
 field_nat_bl <- field_nat_shares %>%
   filter(year == baseline_year) %>%
-  select(field, country_std, share_jf = share_in_field)
+  select(field, onderwijssoort, country_std, share_jf = share_in_field)
 
 # -- Construct field-specific instrument: Z_ft = sum_j(share_jf × accept_rate_jt)
 Z_visa_field_year <- field_nat_bl %>%
   inner_join(Consulates, by = c("country_std" = "country")) %>%
   filter(!is.na(acceptance_rate), !is.na(share_jf)) %>%
-  group_by(field, year) %>%
+  group_by(field, onderwijssoort, year) %>%
   summarise(Z_visa_field = sum(share_jf * acceptance_rate, na.rm = TRUE),
             .groups = "drop")
 
@@ -776,6 +776,11 @@ LISS_panel <- work_all %>%
     age_sq = age^2,                                     # Quadratic age term (non-linear experience effects)
     hours_sq = hours_worked^2,                          # Quadratic hours term (non-linear labour supply)
     partner = as.logical(partner),                      # Convert partner indicator to logical TRUE/FALSE
+    onderwijssoort = case_when(
+      education_years == 16 ~ "Hoger beroepsonderwijs",
+      education_years %in% c(15, 17, 21) ~ "Wetenschappelijk onderwijs",
+      TRUE ~ NA_character_
+    ),
     # Impute missing education years with the sample median (attenuates toward zero -> conservative)
     education_years = ifelse(is.na(education_years), median(education_years, na.rm = TRUE),
                              education_years)
@@ -788,9 +793,9 @@ LISS_panel <- work_all %>%
 # -- Build the final estimation dataset ---------------------------------------
 est_data <- LISS_panel %>%
   # Merge field-level international share (endogenous variable)
-  left_join(field_shares, by = c("field", "survey_year" = "year")) %>%
+  left_join(field_shares, by = c("field", "onderwijssoort", "survey_year" = "year")) %>%
   # Merge field-specific instruments (Z_visa from nationality matrix)
-  left_join(Z_visa_field_year, by = c("field", "survey_year" = "year"))
+  left_join(Z_visa_field_year, by = c("field", "onderwijssoort", "survey_year" = "year"))
 
 est_data <- est_data %>%
   # Drop any row missing a key variable (complete-case analysis)
@@ -1252,161 +1257,6 @@ list("RF-Visa (Std)" = rf_visa_z) %>%
   kable_styling(latex_options = "hold_position")
 ```
 
-# 15. Subsample Analysis: University (WO) vs Professional (HBO)
-
-## 15.0 Derive WO/HBO from education_years in est_data
-
-```{r edu-split}
-# education_years in est_data already correctly encodes tertiary education:
-#   16 = HBO (professional bachelor)
-#   15 = WO bachelor, 17 = WO master, 21 = PhD
-# This avoids any merge issues with edu_raw.
-
-est_data <- est_data %>%
-  mutate(wo_flag = case_when(
-    education_years == 16 ~ "HBO",
-    education_years %in% c(15, 17, 21) ~ "WO",
-    TRUE ~ "Other"
-  ))
-
-wo  <- est_data %>% filter(wo_flag == "WO")
-hbo <- est_data %>% filter(wo_flag == "HBO")
-
-cat("WO observations:", nrow(wo), "| Fields:", n_distinct(wo$field), "\n")
-cat("HBO observations:", nrow(hbo), "| Fields:", n_distinct(hbo$field), "\n")
-cat("Other:", sum(est_data$wo_flag == "Other"), "\n\n")
-
-# Descriptive comparison
-est_data %>%
-  filter(wo_flag %in% c("WO", "HBO")) %>%
-  group_by(wo_flag) %>%
-  summarise(N = sprintf("%d", n()),
-            `Log Income` = sprintf("%.3f (%.3f)", mean(log_income), sd(log_income)),
-            `Share Intl` = sprintf("%.3f (%.3f)", mean(share_int), sd(share_int)),
-            `Age` = sprintf("%.1f (%.1f)", mean(age), sd(age)),
-            .groups = "drop") %>%
-  kable(caption = "Descriptive Statistics: WO vs HBO", booktabs = TRUE) %>%
-  kable_styling(latex_options = "hold_position")
-```
-
-## 15.1 First Stage by Education Level
-
-```{r edu-firststage, results='asis'}
-fs_wo <- feols(share_int ~ Z_visa_field + age + age_sq + education_years +
-                 hours_worked + hours_sq + partner | field,
-               data = wo, cluster = ~field)
-invisible(capture.output(f_wo <- wald(fs_wo, "Z_visa_field")$stat))
-
-fs_hbo <- feols(share_int ~ Z_visa_field + age + age_sq + education_years +
-                  hours_worked + hours_sq + partner | field,
-                data = hbo, cluster = ~field)
-invisible(capture.output(f_hbo <- wald(fs_hbo, "Z_visa_field")$stat))
-
-f_table_edu <- data.frame(
-  Subsample = c("WO (University)", "HBO (Professional)"),
-  `F-statistic` = c(round(f_wo, 1), round(f_hbo, 1)),
-  `# Fields` = c(n_distinct(wo$field), n_distinct(hbo$field)),
-  check.names = FALSE
-)
-kable(f_table_edu, caption = "First-Stage F-Statistics: WO vs HBO",
-      booktabs = TRUE, digits = 1) %>%
-  kable_styling(latex_options = "hold_position")
-```
-
-## 15.2 OLS by Education Level
-
-```{r edu-ols}
-ols_wo <- feols(log_income ~ share_int + age + age_sq + education_years +
-                  hours_worked + hours_sq + partner | field,
-                data = wo, cluster = ~field)
-ols_hbo <- feols(log_income ~ share_int + age + age_sq + education_years +
-                   hours_worked + hours_sq + partner | field,
-                 data = hbo, cluster = ~field)
-
-list("WO (OLS)" = ols_wo, "HBO (OLS)" = ols_hbo) %>%
-  modelsummary(stars = TRUE, estimate = "{estimate} ({std.error}){stars}",
-               statistic = NULL, gof_map = c("nobs", "r.squared"),
-               output = "data.frame") %>%
-  kable(caption = "OLS: WO vs HBO Subsamples", booktabs = TRUE) %>%
-  kable_styling(latex_options = "hold_position")
-```
-
-## 15.3 2SLS by Education Level
-
-```{r edu-iv}
-iv_wo <- feols(log_income ~ age + age_sq + education_years + hours_worked +
-                 hours_sq + partner | field |
-                 share_int ~ Z_visa_field, data = wo, cluster = ~field)
-iv_hbo <- feols(log_income ~ age + age_sq + education_years + hours_worked +
-                  hours_sq + partner | field |
-                  share_int ~ Z_visa_field, data = hbo, cluster = ~field)
-
-list("WO (2SLS)" = iv_wo, "HBO (2SLS)" = iv_hbo) %>%
-  modelsummary(stars = TRUE, estimate = "{estimate} ({std.error}){stars}",
-               statistic = NULL, gof_map = c("nobs", "r.squared"),
-               output = "data.frame") %>%
-  kable(caption = "2SLS: WO vs HBO Subsamples", booktabs = TRUE) %>%
-  kable_styling(latex_options = "hold_position")
-```
-
-## 15.4 Reduced Form by Education Level
-
-```{r edu-rf}
-rf_wo <- feols(log_income ~ Z_visa_field + age + age_sq + education_years +
-                 hours_worked + hours_sq + partner | field,
-               data = wo, cluster = ~field)
-rf_hbo <- feols(log_income ~ Z_visa_field + age + age_sq + education_years +
-                  hours_worked + hours_sq + partner | field,
-                data = hbo, cluster = ~field)
-
-list("WO (RF)" = rf_wo, "HBO (RF)" = rf_hbo) %>%
-  modelsummary(stars = TRUE, estimate = "{estimate} ({std.error}){stars}",
-               statistic = NULL, gof_map = c("nobs", "r.squared"),
-               output = "data.frame") %>%
-  kable(caption = "Reduced Form: WO vs HBO", booktabs = TRUE) %>%
-  kable_styling(latex_options = "hold_position")
-```
-
-## 15.5 STEM vs Non-STEM Within WO and HBO
-
-```{r edu-stem-split}
-wo_stem  <- wo  %>% filter(stem == TRUE)
-wo_nstem <- wo  %>% filter(stem == FALSE)
-hbo_stem  <- hbo %>% filter(stem == TRUE)
-hbo_nstem <- hbo %>% filter(stem == FALSE)
-
-cat("WO + STEM:", nrow(wo_stem),  "| Fields:", n_distinct(wo_stem$field),  "\n")
-cat("WO + Non-STEM:", nrow(wo_nstem), "| Fields:", n_distinct(wo_nstem$field), "\n")
-cat("HBO + STEM:", nrow(hbo_stem),  "| Fields:", n_distinct(hbo_stem$field),  "\n")
-cat("HBO + Non-STEM:", nrow(hbo_nstem), "| Fields:", n_distinct(hbo_nstem$field), "\n")
-
-run_if <- function(label, data) {
-  if (nrow(data) < 100 || n_distinct(data$field) < 2) {
-    cat("Skipping", label, "- insufficient data\n")
-    return()
-  }
-  fs <- feols(share_int ~ Z_visa_field + age + age_sq + education_years +
-                hours_worked + hours_sq + partner | field,
-              data = data, cluster = ~field)
-  iv <- feols(log_income ~ age + age_sq + education_years + hours_worked +
-                hours_sq + partner | field |
-                share_int ~ Z_visa_field, data = data, cluster = ~field)
-  cat("\n###", label, "\n\n")
-  list("First Stage" = fs, "2SLS" = iv) %>%
-    modelsummary(stars = TRUE, estimate = "{estimate} ({std.error}){stars}",
-                 statistic = NULL, gof_map = c("nobs", "r.squared"),
-                 output = "data.frame") %>%
-    kable(booktabs = TRUE, caption = label) %>%
-    kable_styling(latex_options = "hold_position")
-  cat("\n")
-}
-
-run_if("WO + STEM", wo_stem)
-run_if("WO + Non-STEM", wo_nstem)
-run_if("HBO + STEM", hbo_stem)
-run_if("HBO + Non-STEM", hbo_nstem)
-```
-
 # 16. Lagged Instruments
 
 ## 16.1 Motivation
@@ -1436,11 +1286,11 @@ for (L in lags) {
   # Shift years: visa year + L -> outcome year
   lag_df <- Z_visa_field_year
   lag_df$year <- lag_df$year + L
-  names(lag_df)[3] <- col_lag
+  names(lag_df)[4] <- col_lag
   
   # Merge into working dataset (will produce NAs for years with no visa match)
   est_data_lag <- est_data_lag %>%
-    left_join(lag_df, by = c("field", "survey_year" = "year"))
+    left_join(lag_df, by = c("field", "onderwijssoort", "survey_year" = "year"))
 }
 rm(lag_df, col_lag)
 ```
