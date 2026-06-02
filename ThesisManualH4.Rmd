@@ -256,17 +256,14 @@ field_shares <- cbs_share %>%
 # The shift-share instrument uses pre-period (2010) nationality shares as weights.
 # We use year 2010 --- a full decade before the outcome period (2020-2024) --- to
 # ensure the shares are exogenous to contemporaneous shocks (AEA convention).
-cbs_raw <- EthnicalMakeup                                   # Raw CBS data
-names(cbs_raw) <- c("nationaliteit", "perioden", "permits_raw")  # Rename to English
-
-# -- Clean and parse ----------------------------------------------------------
-cbs_shares <- cbs_raw %>%
+# -- Clean and parse directly from EthnicalMakeup -----------------------------
+cbs_shares <- EthnicalMakeup %>%
   mutate(
-    nationality = str_to_title(str_trim(nationaliteit)),    # Standardise nationality name (Title Case)
-    permits = as.numeric(str_trim(permits_raw)),             # Convert permit count to numeric
-    year = as.integer(str_extract(as.character(perioden), "^[0-9]{4}"))  # Extract year from period string
+    nationality = str_to_title(str_trim(Nationaliteit)),
+    permits = as.numeric(str_trim(Verblijfsvergunning.regulier.naar.motief.Studie..aantal.)),
+    year = as.integer(str_extract(as.character(Perioden), "^[0-9]{4}"))
   ) %>%
-  filter(!is.na(permits), permits > 0, !is.na(year))        # Drop missing/zero counts and unparseable years
+  filter(!is.na(permits), permits > 0, !is.na(year))
 
 # -- Aggregate to 2010 nationality shares -------------------------------------
 # Keep only 2010, sum permits per nationality, compute share of total
