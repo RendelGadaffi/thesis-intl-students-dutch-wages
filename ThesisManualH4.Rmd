@@ -144,7 +144,7 @@ Consulates <- bind_rows(visa_list) %>%
 ```
 
 # 3. Field-Level International Share (CBS)
-```{r process-duo}
+```{r process-cbs-share}
 # -- CBS international-background senior share (parents born outside NL) -----
 # Uses the subgroups file with granular 3-digit CBS sub-field codes, senior year.
 # All CBS sub-fields map to one of the 11 field keys (education through services).
@@ -183,7 +183,7 @@ cbs_share <- total_seniors %>%
     share_int = pmin(share_int, 1)
   )
 
-# Map CBS 3-digit sub-field codes to DUO field names.
+# Map CBS 3-digit sub-field codes to CBS field groups.
 # Skips aggregate codes (z.n.d. = zonder nadere detaillering) since
 # the sub-fields already cover them.
 cbs_field_map <- tibble(
@@ -247,7 +247,7 @@ cbs_field_map <- tibble(
   )
 )
 
-# Map aggregate CBS fields to DUO field names (used by the Internationals file)
+# Map aggregate CBS fields to CBS field groups (used by the Internationals file)
 cbs_field_map_instr <- tibble(
   studierichting = c("01 Onderwijs",
                      "02 Vormgeving, kunst, talen en gesch... ",
@@ -268,7 +268,7 @@ cbs_field_map_instr <- tibble(
                 "services", NA_character_)
 )
 
-# Map CBS shares to DUO field names (aggregates sub-fields to DUO level)
+# Map CBS shares to CBS field groups (aggregates sub-fields to CBS field level)
 field_shares <- cbs_share %>%
   inner_join(cbs_field_map, by = "studierichting") %>%
   group_by(field, onderwijssoort, year) %>%
@@ -316,27 +316,27 @@ intl_total_raw <- read_delim(file.path(base, "Students by homeland, gender, FoS,
   group_by(studierichting, onderwijssoort, year) %>%
   summarise(intl_total = sum(count, na.rm = TRUE), .groups = "drop")
 
-# Map both to DUO fields
-cariben_duo <- cariben_raw %>%
+# Map both to CBS fields
+cariben_field <- cariben_raw %>%
   inner_join(cbs_field_map_instr, by = "studierichting") %>%
   filter(!is.na(field)) %>%
   group_by(field, onderwijssoort, year) %>%
   summarise(cariben = sum(cariben, na.rm = TRUE), .groups = "drop")
 
-intl_total_duo <- intl_total_raw %>%
+intl_total_field <- intl_total_raw %>%
   inner_join(cbs_field_map_instr, by = "studierichting") %>%
   filter(!is.na(field)) %>%
   group_by(field, onderwijssoort, year) %>%
   summarise(intl_total = sum(intl_total, na.rm = TRUE), .groups = "drop")
 
-# Cariben share of foreign students per DUO field
-cariben_share <- cariben_duo %>%
-  left_join(intl_total_duo, by = c("field", "onderwijssoort", "year")) %>%
+# Cariben share of foreign students per CBS field
+cariben_share <- cariben_field %>%
+  left_join(intl_total_field, by = c("field", "onderwijssoort", "year")) %>%
   mutate(cariben_share = ifelse(intl_total > 0, cariben / intl_total, 0)) %>%
   select(field, onderwijssoort, year, cariben_share)
 
-cariben_share_agg <- cariben_duo %>%
-  left_join(intl_total_duo, by = c("field", "onderwijssoort", "year")) %>%
+cariben_share_agg <- cariben_field %>%
+  left_join(intl_total_field, by = c("field", "onderwijssoort", "year")) %>%
   group_by(field, year) %>%
   summarise(
     cariben = sum(cariben, na.rm = TRUE),
@@ -603,7 +603,7 @@ intl_detailed_agg <- intl_origin_agg %>%
   filter(country_std != "BUITEN_EUROPA") %>%
   bind_rows(bu_split_agg)
 
-# -- Map CBS Studierichting to DUO field names ----------------------------------
+# -- Map CBS Studierichting to CBS field groups ----------------------------------
 # For the instrument, aggregate CBS field "04" maps to both recht AND economie
 # (the Internationals file doesn't have 041/042 sub-fields).
 cbs_field_map_instr <- tibble(
@@ -698,9 +698,9 @@ Z_visa_year <- visa_merged %>%
 # 7. LISS Panel Data
 
 ```{r process-liss-work}
-# -- LISS field-of-study code -> DUO field name map -----------------------------
+# -- LISS field-of-study code -> CBS field group map -----------------------------
 # LISS uses numeric codes (011-027) for fields of study. We map each code to the
-# corresponding DUO field name (onderdeel) and a boolean STEM indicator.
+# corresponding CBS field group (onderdeel) and a boolean STEM indicator.
 # Codes 017-019 (natuur, techniek, landbouw) are classified as STEM.
 field_map <- tibble(
   code = sprintf("%03d", 11:27),          # Generate codes "011", "012", ... "027"
@@ -935,7 +935,7 @@ income_all <- bind_rows(get_income(LISS2020ES, 2020), get_income(LISS2021ES, 202
 LISS_panel <- work_all %>%
   # Inner join: keep only respondents present in BOTH work and income modules
   inner_join(income_all, by = c("nomem_encr", "survey_year")) %>%
-  # Map LISS numeric field code -> DUO field name + STEM indicator
+  # Map LISS numeric field code -> CBS field group + STEM indicator
   left_join(field_map, by = c("liss_code" = "code")) %>%
   # Drop rows missing essential variables (can't estimate without these)
   filter(!is.na(field), !is.na(gross_monthly_income), gross_monthly_income > 0) %>%
