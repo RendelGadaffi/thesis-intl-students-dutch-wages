@@ -710,184 +710,155 @@ field_map <- tribble(
 ## 6.2 Work and Schooling Module
 
 ```{r liss-parse-work}
-# -- Early waves (2020-2021): column-name-based format -------------------------
-# These waves use descriptive English column names. We detect relevant columns
-# by pattern-matching their names.
-parse_early_work <- function(df, yr) {
+# Survey year identifier
+survey_years <- c(2020, 2021, 2022, 2023, 2024)
 
-  # Rename first column to the standard respondent identifier
-  names(df)[1] <- "nomem_encr"
+# -- Extract and harmonize fields across all waves -----------------------------
+# Each LISS wave records the same information (field of study, age, education,
+# hours worked, tenure), but column names change between early (2020-2021) and
+# late (2022-2024) waves. We process each year independently, rename to a
+# consistent schema, then bind the results into a single panel.
 
-  # -- Field of study ----------------------------------------------------------
-  # Columns correspond to codes 011-027. LISS codes them:
-  #   1 = currently following, 2 = completed, 0 = not applicable
-  field_cols <- names(df)[12:28]
-  field_codes <- sprintf("%%03d", 11:27)
+work_list <- list()
 
-  # Convert each column to logical: TRUE if the respondent studied that field
-  mat <- as.data.frame(lapply(df[, field_cols, drop = FALSE],
-                              function(x) as.integer(x) %in% c(1, 2)))
+for (yr in survey_years) {
 
-  # For each respondent, take the first field they report
-  sel <- apply(mat, 1, function(r) {
-    idx <- which(r)
-    if (length(idx) == 0) NA_character_ else field_codes[idx[1]]
-  })
+  if (yr <= 2021) {
+    # -- Early waves (2020-2021): descriptive column names --------------------
+    df <- get(paste0("LISS", yr, "WS"))
+    names(df)[1] <- "nomem_encr"
 
-  # -- Age ---------------------------------------------------------------------
-  age <- as.numeric(df[[6]])
+    # Field of study: columns 12-28 map to codes 011-027
+    field_codes <- sprintf("%03d", 11:27)
+    mat <- as.data.frame(lapply(df[, 12:28], function(x) as.integer(x) %in% c(1, 2)))
+    liss_code <- apply(mat, 1, function(r) {
+      idx <- which(r)
+      if (length(idx) == 0) NA_character_ else field_codes[idx[1]]
+    })
 
-  # -- Highest completed education ---------------------------------------------
-  # LISS asks for the highest education level completed with a diploma.
-  # We map each unique text response to years of schooling using an explicit
-  # lookup table (verified against all 28 unique values in 2020-2021 data).
-  edu_col <- grep("highest level.*education.*completed.*diploma",
-                  names(df), value = TRUE, ignore.case = TRUE)[1]
-  edu_text <- as.character(df[[edu_col]])
+    # Age: column 6
+    age <- as.numeric(df[[6]])
 
-  edu_lookup <- c(
-    "did not complete any education"                                 = "0",
-    "did not complete primary school"                                = "0",
-    "primary school"                                                 = "6",
-    "vmbo theoretical or combined program (preparatory intermediate vocational school)" = "10",
-    "vmbo vocational training program (preparatory intermediate vocational school)"    = "10",
-    "mulo, ulo, mavo (lower/intermediate secondary education; US: junior high school)" = "10",
-    "lower technical school, household school"                       = "10",
-    "lbo (lower professional education)"                             = "10",
-    "vglo (continued lower education)"                               = "10",
-    "lower and continued special education"                          = "10",
-    "havo (higher general secondary education; US: junior high school)" = "11",
-    "hbs (former pre-university education, US: senior high school)"  = "11",
-    "mms (intermediate girls' school)"                               = "11",
-    "vwo (pre-university education, US: senior high school)"         = "12",
-    "gymnasium, atheneum, lyceum (types of pre-university education programs)" = "12",
-    "mbo professional training program (intermediate professional education (bbl))" = "13",
-    "mbo professional training program (intermediate professional education (bol))" = "13",
-    "kmbo (short intermediate professional education), vhbo (preparatory higher professional education)" = "13",
-    "mbo-plus to access hbo, short hbo education (less than two years) (higher professional education)" = "14",
-    "hbo (higher professional education), institutes of higher education, new style" = "16",
-    "teacher training school"                                        = "16",
-    "academic education, bachelor"                                   = "15",
-    "academic education (including technical and economic colleges, former style) bachelor's degree (kandidaats)" = "15",
-    "conservatory and art academy"                                   = "15",
-    "academic education, master"                                     = "17",
-    "academic education (including technical and economic colleges, former style) master's degree (doctoraal)" = "17",
-    "doctor's degree (Ph.D, including doctoral research program to obtain Ph.D)" = "21",
-    "other"                                                          = NA_character_
+    # Education
+    edu_col <- grep("highest level.*education.*completed.*diploma",
+                    names(df), value = TRUE, ignore.case = TRUE)[1]
+    edu_text <- as.character(df[[edu_col]])
+
+    # Hours worked
+    hrs_col <- grep("actually work", names(df), value = TRUE, ignore.case = TRUE)[1]
+    hours_worked <- if (!is.na(hrs_col)) as.numeric(df[[hrs_col]]) else NA_real_
+
+    # Tenure
+    ten_col <- grep("year.*(current employer|enter into employment|start.*employment)",
+                    names(df), value = TRUE, ignore.case = TRUE)[1]
+    start_year <- if (!is.na(ten_col)) as.numeric(df[[ten_col]]) else NA_real_
+    tenure_years <- ifelse(!is.na(start_year) & start_year > 1900 & start_year < yr,
+                           yr - start_year, NA_real_)
+
+  } else {
+    # -- Late waves (2022-2024): prefixed column codes -----------------------
+    df <- get(paste0("LISS", yr, "WS"))
+    nm <- names(df)
+
+    # Detect wave letter from the age column (ends in "003")
+    age_idx <- grep("003$", nm)[1]
+    wave_letter <- substr(nm[age_idx], 5, 5)
+    prefix <- paste0("cw", substr(yr, 3, 4), wave_letter)
+
+    # Field of study: columns cwXX011 through cwXX027
+    fcols <- nm[grep(paste0("^", prefix, "0[12][0-9]$"), nm)]
+    fcodes <- sub(".*([0-9]{3})$", "\\1", fcols)
+
+    nr <- nrow(df)
+    liss_code <- rep(NA_character_, nr)
+    for (i in seq_len(nr)) {
+      vals <- as.integer(df[i, fcols])
+      idx <- which(vals %in% c(1, 2))
+      if (length(idx) > 0) liss_code[i] <- fcodes[idx[1]]
+    }
+
+    # Age
+    age <- as.numeric(df[[paste0(prefix, "003")]])
+
+    # Education: standardized code cwXX525
+    edu_col <- paste0(prefix, "525")
+    if (edu_col %in% nm) {
+      edu_code <- as.numeric(df[[edu_col]])
+      # Map code 1-13 to years of schooling (Leuven et al. 2013 convention)
+      edu_yrs_vec <- c(0, 6, 10, 11, 12, 13, 16, 15, 17, 21, 21, 21, 21)
+      edu_yrs <- edu_yrs_vec[edu_code]
+    } else {
+      edu_yrs <- rep(NA_real_, nr)
+    }
+
+    # Hours worked: cwXX126
+    hrs_col <- paste0(prefix, "126")
+    hours_worked <- if (hrs_col %in% nm) as.numeric(df[[hrs_col]]) else rep(NA_real_, nr)
+
+    # Tenure: cwXX149
+    ten_col <- paste0(prefix, "149")
+    start_year <- if (ten_col %in% nm) as.numeric(df[[ten_col]]) else rep(NA_real_, nr)
+    tenure_years <- ifelse(!is.na(start_year) & start_year > 1900 & start_year < yr,
+                           yr - start_year, NA_real_)
+
+    # Keep education_text as NA for late waves (standardized codes used instead)
+    edu_text <- rep(NA_character_, nr)
+  }
+
+  # -- Education years lookup (early waves only) --------------------------------
+  if (yr <= 2021) {
+    edu_lookup <- c(
+      "did not complete any education"                                               = "0",
+      "did not complete primary school"                                              = "0",
+      "primary school"                                                               = "6",
+      "vmbo theoretical or combined program (preparatory intermediate vocational school)" = "10",
+      "vmbo vocational training program (preparatory intermediate vocational school)"    = "10",
+      "mulo, ulo, mavo (lower/intermediate secondary education; US: junior high school)" = "10",
+      "lower technical school, household school"                                     = "10",
+      "lbo (lower professional education)"                                           = "10",
+      "vglo (continued lower education)"                                             = "10",
+      "lower and continued special education"                                        = "10",
+      "havo (higher general secondary education; US: junior high school)"            = "11",
+      "hbs (former pre-university education, US: senior high school)"               = "11",
+      "mms (intermediate girls' school)"                                             = "11",
+      "vwo (pre-university education, US: senior high school)"                       = "12",
+      "gymnasium, atheneum, lyceum (types of pre-university education programs)"     = "12",
+      "mbo professional training program (intermediate professional education (bbl))" = "13",
+      "mbo professional training program (intermediate professional education (bol))" = "13",
+      "kmbo (short intermediate professional education), vhbo (preparatory higher professional education)" = "13",
+      "mbo-plus to access hbo, short hbo education (less than two years) (higher professional education)" = "14",
+      "hbo (higher professional education), institutes of higher education, new style" = "16",
+      "teacher training school"                                                      = "16",
+      "academic education, bachelor"                                                 = "15",
+      "academic education (including technical and economic colleges, former style) bachelor's degree (kandidaats)" = "15",
+      "conservatory and art academy"                                                 = "15",
+      "academic education, master"                                                   = "17",
+      "academic education (including technical and economic colleges, former style) master's degree (doctoraal)" = "17",
+      "doctor's degree (Ph.D, including doctoral research program to obtain Ph.D)"   = "21",
+      "other"                                                                        = NA_character_
+    )
+    education_years <- as.numeric(edu_lookup[edu_text])
+  }
+
+  # -- Education level (HBO vs WO) ----------------------------------------------
+  onderwijssoort <- rep(NA_character_, length(education_years))
+  onderwijssoort[education_years == 16] <- "Hoger beroepsonderwijs"
+  onderwijssoort[education_years %in% c(15, 17, 21)] <- "Wetenschappelijk onderwijs"
+
+  work_list[[as.character(yr)]] <- data.frame(
+    nomem_encr     = as.character(df[[1]]),
+    survey_year    = yr,
+    liss_code      = liss_code,
+    age            = age,
+    education_years = education_years,
+    onderwijssoort = onderwijssoort,
+    hours_worked   = hours_worked,
+    tenure_years   = tenure_years,
+    stringsAsFactors = FALSE
   )
-
-  edu_yrs <- as.numeric(edu_lookup[edu_text])
-
-  # -- Education level (HBO / WO) ----------------------------------------------
-  onderwijssoort <- rep(NA_character_, nrow(df))
-  onderwijssoort[edu_yrs == 16] <- "Hoger beroepsonderwijs"
-  onderwijssoort[edu_yrs %in% c(15, 17, 21)] <- "Wetenschappelijk onderwijs"
-
-  # -- Hours worked per week ---------------------------------------------------
-  hrs_col <- grep("actually work", names(df), value = TRUE, ignore.case = TRUE)[1]
-  hours_worked <- if (!is.na(hrs_col)) as.numeric(df[[hrs_col]]) else NA_real_
-
-  # -- Tenure (years with current employer) ------------------------------------
-  ten_col <- grep("year.*(current employer|enter into employment|start.*employment)",
-                  names(df), value = TRUE, ignore.case = TRUE)[1]
-  start_year <- if (!is.na(ten_col)) as.numeric(df[[ten_col]]) else NA_real_
-  tenure_years <- ifelse(!is.na(start_year) & start_year > 1900 & start_year < yr,
-                         yr - start_year, NA_real_)
-
-  data.frame(nomem_encr = as.character(df$nomem_encr),
-             survey_year = yr,
-             liss_code = sel,
-             age = age,
-             education_years = edu_yrs,
-             onderwijssoort = onderwijssoort,
-             hours_worked = hours_worked,
-             tenure_years = tenure_years,
-             stringsAsFactors = FALSE)
 }
 
-# -- Late waves (2022-2024): prefixed-column format ----------------------------
-# These waves use a standardised naming scheme: cw<YY><letter><NNN> where
-# YY = last 2 digits of the year, letter = wave identifier, NNN = variable code.
-parse_late_work <- function(df, yr) {
-
-  nm <- names(df)
-
-  # Detect the wave letter from the age column (always ends in "003")
-  age_idx <- grep("003$", nm)[1]
-  wave_letter <- substr(nm[age_idx], 5, 5)
-  prefix <- paste0("cw", substr(yr, 3, 4), wave_letter)
-  age_col <- paste0(prefix, "003")
-
-  # -- Field of study (columns cwXX011 through cwXX027) ------------------------
-  fcols <- nm[grep(paste0("^", prefix, "0[12][0-9]$"), nm)]
-  fcodes <- sub(".*([0-9]{3})$", "\\1", fcols)
-
-  nr <- nrow(df)
-  sel <- rep(NA_character_, nr)
-  for (i in seq_len(nr)) {
-    vals <- as.integer(df[i, fcols])
-    idx <- which(vals %in% c(1, 2))
-    if (length(idx) > 0) sel[i] <- fcodes[idx[1]]
-  }
-
-  # -- Education: column cwXX525 (LISS standard code 1-13) ---------------------
-  edu_col <- paste0(prefix, "525")
-  if (edu_col %in% nm) {
-    edu_code <- as.numeric(df[[edu_col]])
-    edu_yrs <- rep(NA_real_, nr)
-    edu_yrs[edu_code == 1]  <- 0    # No education
-    edu_yrs[edu_code == 2]  <- 6    # Primary
-    edu_yrs[edu_code == 3]  <- 10   # VMBO
-    edu_yrs[edu_code == 4]  <- 11   # HAVO
-    edu_yrs[edu_code == 5]  <- 12   # VWO
-    edu_yrs[edu_code == 6]  <- 13   # MBO
-    edu_yrs[edu_code == 7]  <- 16   # HBO
-    edu_yrs[edu_code == 8]  <- 15   # WO bachelor
-    edu_yrs[edu_code %in% 9:10] <- 17  # WO master
-    edu_yrs[edu_code == 10] <- 21   # PhD
-    edu_yrs[edu_code >= 11] <- 21   # Postdoc / professorship
-  } else {
-    edu_yrs <- rep(NA_real_, nr)
-  }
-
-  # -- Education level (HBO / WO) ----------------------------------------------
-  if (exists("edu_code") && length(edu_code) > 0) {
-    onderwijssoort <- rep(NA_character_, nr)
-    onderwijssoort[edu_code == 7]        <- "Hoger beroepsonderwijs"
-    onderwijssoort[edu_code %in% 8:10]  <- "Wetenschappelijk onderwijs"
-  } else {
-    onderwijssoort <- rep(NA_character_, nr)
-  }
-
-  # -- Hours worked: column cwXX126 --------------------------------------------
-  hrs_col <- paste0(prefix, "126")
-  hours_worked <- if (hrs_col %in% nm) as.numeric(df[[hrs_col]]) else rep(NA_real_, nr)
-
-  # -- Tenure: column cwXX149 (year started with employer) ----------------------
-  ten_col <- paste0(prefix, "149")
-  start_year_lt <- if (ten_col %in% nm) as.numeric(df[[ten_col]]) else rep(NA_real_, nr)
-  tenure_years <- ifelse(!is.na(start_year_lt) & start_year_lt > 1900 & start_year_lt < yr,
-                         yr - start_year_lt, NA_real_)
-
-  data.frame(nomem_encr = as.character(df[[1]]),
-             survey_year = yr,
-             liss_code = sel,
-             age = as.numeric(df[[age_col]]),
-             education_years = edu_yrs,
-             onderwijssoort = onderwijssoort,
-             hours_worked = hours_worked,
-             tenure_years = tenure_years,
-             stringsAsFactors = FALSE)
-}
-
-# -- Parse all years and combine -----------------------------------------------
-work_all <- bind_rows(
-  parse_early_work(LISS2020WS, 2020),
-  parse_early_work(LISS2021WS, 2021),
-  parse_late_work(LISS2022WS, 2022),
-  parse_late_work(LISS2023WS, 2023),
-  parse_late_work(LISS2024WS, 2024)
-)
+work_all <- bind_rows(work_list)
 ```
 
 ## 6.3 Income Module
