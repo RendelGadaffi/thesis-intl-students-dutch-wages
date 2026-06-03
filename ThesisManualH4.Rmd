@@ -497,7 +497,7 @@ nat_shares <- nat_shares %>%
                                 str_to_upper(nationality)))
 ```
 
-# 4b. Field × Nationality Matrix (for shift-share instrument)
+# 5. Field × Nationality Matrix (for shift-share instrument)
 #
 # Use the CBS Internationals file (Herkomstland × Studierichting) to get
 # field-specific nationality composition of international students.
@@ -670,30 +670,8 @@ Z_visa_field_agg <- field_nat_bl_agg %>%
             .groups = "drop")
 ```
 
-# 5. Construct Instruments
 
-## 5.1 Instrument 1: Visa Acceptance Rates (all countries)
-
-```{r instr-visa}
-# -- Shift-share instrument: Schengen visa acceptance x nationality share ------
-# Inner join: keep only countries that appear in BOTH the IND visa data AND
-# the CBS nationality shares. This gives us, for each matched country, the visa
-# acceptance rate and its pre-period share of Dutch residence permits.
-visa_merged <- Consulates %>%
-  inner_join(nat_shares, by = c("country" = "country_std")) %>%
-  filter(!is.na(acceptance_rate), !is.na(share))
-
-# Compute the year-level instrument Z_visa as:
-#   Z_visa[t] = sum_over_countries( share_c x acceptance_rate_c,t )
-# This is a Bartik-style average: 2010 share weights x time-varying visa acceptance.
-Z_visa_year <- visa_merged %>%
-  group_by(year) %>%
-  summarise(Z_visa = sum(share * acceptance_rate, na.rm = TRUE), .groups = "drop")
-```
-
-# 6. LISS Field-of-Study Mapping
-
-# 7. LISS Panel Data
+# 6. LISS Panel Data
 
 ```{r process-liss-work}
 # -- LISS field-of-study code -> CBS field group map -----------------------------
