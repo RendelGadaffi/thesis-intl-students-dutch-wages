@@ -877,7 +877,7 @@ parse_income <- function(df, yr) {
 
     data.frame(nomem_encr = as.character(df$nomem_encr),
                survey_year = yr,
-               gross_monthly_income = if (!is.na(gc)) as.numeric(df[[gc]]) else NA_real_,
+               gross_income = if (!is.na(gc)) as.numeric(df[[gc]]) else NA_real_,
                partner = if (!is.na(partner_col)) as.numeric(df[[partner_col]]) == 1 else NA,
                stringsAsFactors = FALSE)
 
@@ -891,7 +891,7 @@ parse_income <- function(df, yr) {
 
     data.frame(nomem_encr = as.character(df[[1]]),
                survey_year = yr,
-               gross_monthly_income = if (inc_col %in% nm) as.numeric(df[[inc_col]]) else NA_real_,
+               gross_income = if (inc_col %in% nm) as.numeric(df[[inc_col]]) else NA_real_,
                partner = if (partner_col %in% nm) as.numeric(df[[partner_col]]) == 1 else NA,
                stringsAsFactors = FALSE)
   }
@@ -914,10 +914,10 @@ LISS_panel <- work_all %>%
   inner_join(income_all, by = c("nomem_encr", "survey_year")) %>%
   left_join(field_map, by = c("liss_code" = "code")) %>%
   filter(!is.na(field),
-         !is.na(gross_monthly_income),
-         gross_monthly_income > 0) %>%
+         !is.na(gross_income),
+         gross_income > 0) %>%
   mutate(
-    log_income    = log(gross_monthly_income),
+    log_income    = log(gross_income),
     age_sq        = age^2,
     hours_sq      = hours_worked^2,
     partner       = as.logical(partner),
@@ -927,49 +927,7 @@ LISS_panel <- work_all %>%
   )
 ```
 
-```{r process-liss-income}
-# -- get_income(): extract gross monthly wage and partner status ---------------
-# Early waves (<= 2021) use column-name-based detection; later waves (>= 2022) use
-# the prefixed naming scheme (ciXXy, where ci = "income" module).
-get_income <- function(df, yr) {
-  if (yr <= 2021) {
-    # -- Early-wave parser (column names) --------------------------------------
-    names(df)[1] <- "nomem_encr"  # First column = respondent ID
-    # Find "gross wages in total" column (exact phrasing varies slightly by year)
-    gc <- grep("gross wages in total", names(df), value = TRUE, ignore.case = TRUE)[1]
-    # Find "lives together with partner" column
-    partner_col <- grep("household head lives together with a partner", names(df), value = TRUE, ignore.case = TRUE)[1]
-
-    data.frame(nomem_encr = as.character(df$nomem_encr), survey_year = yr,
-               gross_monthly_income = if (!is.na(gc)) as.numeric(df[[gc]]) else NA_real_,
-               partner = if (!is.na(partner_col)) as.numeric(df[[partner_col]]) == 1 else NA,
-               stringsAsFactors = FALSE)
-  } else {
-    # -- Late-wave parser (prefixed columns) -----------------------------------
-    nm <- names(df)
-    # Find the column ending in "372" (income variable code) to extract wave letter
-    wave_letter <- substr(nm[grep("372$", nm)[1]], 5, 5)
-    # Prefix = "ci" + last 2 digits of year + wave letter (e.g. "ci24q")
-    prefix <- paste0("ci", substr(as.character(yr), 3, 4), wave_letter)
-    # Income column = prefix + "372" (gross monthly wages)
-    inc_col <- paste0(prefix, "372")
-    # Partner column = prefix + "003" (household composition)
-    partner_col <- paste0(prefix, "003")
-
-    data.frame(nomem_encr = as.character(df[[1]]), survey_year = yr,
-               gross_monthly_income = if (inc_col %in% nm) as.numeric(df[[inc_col]]) else NA_real_,
-               partner = if (partner_col %in% nm) as.numeric(df[[partner_col]]) == 1 else NA,
-               stringsAsFactors = FALSE)
-  }
-}
-
-# -- Apply income parser to all 5 years and stack -----------------------------
-income_all <- bind_rows(get_income(LISS2020ES, 2020), get_income(LISS2021ES, 2021),
-                        get_income(LISS2022ES, 2022), get_income(LISS2023ES, 2023),
-                        get_income(LISS2024ES, 2024))
-```
-
-```{r merge-liss}
+```{r liss-merge}
 # -- Merge work data + income data + field map into a single panel ------------
 LISS_panel <- work_all %>%
   # Inner join: keep only respondents present in BOTH work and income modules
@@ -977,9 +935,9 @@ LISS_panel <- work_all %>%
   # Map LISS numeric field code -> CBS field group + STEM indicator
   left_join(field_map, by = c("liss_code" = "code")) %>%
   # Drop rows missing essential variables (can't estimate without these)
-  filter(!is.na(field), !is.na(gross_monthly_income), gross_monthly_income > 0) %>%
+  filter(!is.na(field), !is.na(gross_income), gross_income > 0) %>%
   mutate(
-    log_income = log(gross_monthly_income),           # Log transform for wage equation (Mincer)
+    log_income = log(gross_income),           # Log transform for wage equation (Mincer)
     age_sq = age^2,                                     # Quadratic age term (non-linear experience effects)
     hours_sq = hours_worked^2,                          # Quadratic hours term (non-linear labour supply)
     partner = as.logical(partner),                      # Convert partner indicator to logical TRUE/FALSE
