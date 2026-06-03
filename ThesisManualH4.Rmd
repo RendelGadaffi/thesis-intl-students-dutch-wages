@@ -672,98 +672,129 @@ Z_visa_field_agg <- field_nat_bl_agg %>%
 
 
 # 6. LISS Panel Data
+#
+# The LISS panel provides individual-level survey data on Dutch households.
+# We use two modules: "Work and Schooling" (field of study, education level,
+# working hours) and "Economic Situation: Income" (gross monthly wages,
+# partner status). The survey covers five years (2020-2024), with a change
+# in column naming convention between early (2020-2021) and late (2022-2024)
+# waves.
 
-```{r process-liss-work}
-# -- LISS field-of-study code -> CBS field group map -----------------------------
-# LISS uses numeric codes (011-027) for fields of study. We map each code to the
-# corresponding CBS field group (onderdeel) and a boolean STEM indicator.
-# STEM fields: mathematics/IT (018), technology (019), agriculture (020).
-field_map <- tibble(
-  code = sprintf("%03d", 11:27),          # Generate codes "011", "012", ... "027"
-  field = c(NA, "education", "arts_languages", "arts_languages",
-                "behavior_society", "business_admin", "law",
-                "natural_sciences", "engineering", "agriculture",
-                "healthcare", "services",
-                "services", "services", "services",
-                "services", NA),
-  stem = c(FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,       # 011-017 non-STEM
-           TRUE, TRUE, TRUE, FALSE,                                # 018-020 STEM
-           FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)               # 021-027 non-STEM
+## 6.1 Field-of-Study Code Map
+
+```{r liss-field-map}
+# -- LISS field-of-study code -> CBS field group --------------------------------
+# LISS codes 011-027 map to 11 CBS field groups. Codes 018, 019, 020 are STEM.
+field_map <- tribble(
+  ~code, ~field,             ~stem,
+  "011", NA,                 FALSE,   # General / no specific field
+  "012", "education",        FALSE,   # Teacher training
+  "013", "arts_languages",   FALSE,   # Art
+  "014", "arts_languages",   FALSE,   # Humanities (languages, history, theology)
+  "015", "behavior_society", FALSE,   # Social and behavioral studies
+  "016", "business_admin",   FALSE,   # Economics, management, business
+  "017", "law",              FALSE,   # Law, public administration
+  "018", "natural_sciences", TRUE,    # Mathematics, physics, IT
+  "019", "engineering",      TRUE,    # Technology, architecture, crafts
+  "020", "agriculture",      TRUE,    # Agriculture, forestry, environment
+  "021", "healthcare",       FALSE,   # Medical, health services, nursing
+  "022", "services",         FALSE,   # Personal care services
+  "023", "services",         FALSE,   # Catering, recreation
+  "024", "services",         FALSE,   # Transport, logistics
+  "025", "services",         FALSE,   # Telecommunication
+  "026", "services",         FALSE,   # Public order and safety (police, army)
+  "027", NA,                 FALSE    # Other area
 )
+```
 
-# -- process_early(): parse LISS 2020-2021 (comma-separated, column-name-based) --
-process_early <- function(df, yr) {
-  # Column 1 is the respondent identifier (nomem_encr --- encrypted membership number)
+## 6.2 Work and Schooling Module
+
+```{r liss-parse-work}
+# -- Early waves (2020-2021): column-name-based format -------------------------
+# These waves use descriptive English column names. We detect relevant columns
+# by pattern-matching their names.
+parse_early_work <- function(df, yr) {
+
+  # Rename first column to the standard respondent identifier
   names(df)[1] <- "nomem_encr"
 
-  # Columns 12-28 are the field-of-study binary indicators (one column per field code)
+  # -- Field of study ----------------------------------------------------------
+  # Columns correspond to codes 011-027. LISS codes them:
+  #   1 = currently following, 2 = completed, 0 = not applicable
   field_cols <- names(df)[12:28]
-  # The corresponding field codes (011-027) as zero-padded 3-character strings
-  field_codes <- sprintf("%03d", 11:27)
+  field_codes <- sprintf("%%03d", 11:27)
 
-  # Extract only the field-of-study columns into a matrix (preserving row order)
-  mat <- df[, field_cols, drop = FALSE]
-  # LISS codes 1 = "currently following" and 2 = "completed" -> both count as studying the field.
-  # Convert each column to TRUE/FALSE: TRUE if the value is 1 or 2.
-  mat[] <- lapply(mat, function(x) as.integer(x) %in% c(1, 2))
+  # Convert each column to logical: TRUE if the respondent studied that field
+  mat <- as.data.frame(lapply(df[, field_cols, drop = FALSE],
+                              function(x) as.integer(x) %in% c(1, 2)))
 
-  # For each row (respondent), find the FIRST field column that is TRUE,
-  # and return the corresponding field code. If none selected, return NA.
-  sel <- apply(mat, 1, function(r) { idx <- which(r); if (length(idx) == 0) NA_character_ else field_codes[idx[1]] })
+  # For each respondent, take the first field they report
+  sel <- apply(mat, 1, function(r) {
+    idx <- which(r)
+    if (length(idx) == 0) NA_character_ else field_codes[idx[1]]
+  })
 
-  # -- Education attainment mapping --------------------------------------------
-  # LISS asks "What is the highest level of education completed with a diploma?"
-  # We convert the text answer to TWO independent variables:
-  #   1. education_years --- estimated total years of schooling (for Mincer equation)
-  #   2. level --- WO (research university) vs HBO (applied sciences) classification
-  # Both come from the SAME raw survey answer, but are derived SEPARATELY.
-  #
-  # Years mapping based on convention in published LISS-using papers
-  # (Leuven, Oosterbeek & van der Klaauw 2013; Bozza 2022):
-  #   Compulsory schooling starts at age 6 -> primary = 6 years (ages 6-12)
-  edu_col <- grep("highest level.*education.*completed.*diploma", names(df), value = TRUE, ignore.case = TRUE)[1]
+  # -- Age ---------------------------------------------------------------------
+  age <- as.numeric(df[[6]])
+
+  # -- Highest completed education ---------------------------------------------
+  edu_col <- grep("highest level.*education.*completed.*diploma",
+                  names(df), value = TRUE, ignore.case = TRUE)[1]
   edu_raw <- as.character(df[[edu_col]])
-  # Initialise as NA for all rows
-  edu_yrs <- rep(NA_real_, nrow(df))
-  # Map LISS education categories to Dutch system years (convention from published literature):
-  edu_yrs[grepl("did not complete|^no$|^none$", edu_raw, ignore.case = TRUE)] <- 0  # No diploma
-  edu_yrs[grepl("^primary school", edu_raw, ignore.case = TRUE)] <- 6               # Basisschool (6 yrs from age 6)
-  edu_yrs[grepl("vmbo|mulo|lower technical|^lbo|vglo", edu_raw, ignore.case = TRUE)] <- 10  # VMBO (6+4)
-  edu_yrs[grepl("^havo|^hbs|^mms", edu_raw, ignore.case = TRUE)] <- 11              # HAVO (6+5)
-  edu_yrs[grepl("^vwo|^gymnasium", edu_raw, ignore.case = TRUE)] <- 12              # VWO (6+6)
-  edu_yrs[grepl("^mbo |^kmbo", edu_raw, ignore.case = TRUE)] <- 13                  # MBO (6+6+1)
-  edu_yrs[grepl("^mbo-plus", edu_raw, ignore.case = TRUE)] <- 14                    # MBO+ (6+6+2)
-  edu_yrs[grepl("^hbo", edu_raw, ignore.case = TRUE)] <- 16                         # HBO (VWO 12+4, via MBO 13+3)
-  edu_yrs[grepl("academic.*bachelor", edu_raw, ignore.case = TRUE)] <- 15            # WO bachelor (VWO 12+3)
-  edu_yrs[grepl("academic.*master", edu_raw, ignore.case = TRUE)] <- 17              # WO master (15+2)
-  edu_yrs[grepl("^academic|^university", edu_raw, ignore.case = TRUE)] <- 15         # WO (unspecified = bachelor)
-  edu_yrs[grepl("doctor|phd", edu_raw, ignore.case = TRUE)] <- 21                    # PhD (17+4)
-  # Additional mappings for values present in the LISS early-wave data:
-  edu_yrs[grepl("teacher training", edu_raw, ignore.case = TRUE)] <- 16              # Pabo / teacher training = HBO (16 yrs)
-  edu_yrs[grepl("conservatory|art academy", edu_raw, ignore.case = TRUE)] <- 15      # Conservatorium = WO bachelor (15 yrs)
-  edu_yrs[grepl("special education", edu_raw, ignore.case = TRUE)] <- 10            # Special education = VMBO level (10 yrs)
 
-  # -- Education level (HBO vs WO) from raw education answer --------------------
+  # Map text responses to years of schooling (Mincer convention):
+  edu_yrs <- rep(NA_real_, nrow(df))
+
+  # No diploma
+  edu_yrs[grepl("did not complete|^no$|^none$",         edu_raw, ignore.case = TRUE)] <- 0
+  # Primary (basisschool, ages 6-12)
+  edu_yrs[grepl("^primary school",                       edu_raw, ignore.case = TRUE)] <- 6
+  # VMBO / lower secondary (6+4)
+  edu_yrs[grepl("vmbo|mulo|lower technical|^lbo|vglo",  edu_raw, ignore.case = TRUE)] <- 10
+  # HAVO / upper secondary (6+5)
+  edu_yrs[grepl("^havo|^hbs|^mms",                      edu_raw, ignore.case = TRUE)] <- 11
+  # VWO / pre-university (6+6)
+  edu_yrs[grepl("^vwo|^gymnasium",                      edu_raw, ignore.case = TRUE)] <- 12
+  # MBO / intermediate vocational
+  edu_yrs[grepl("^mbo |^kmbo",                           edu_raw, ignore.case = TRUE)] <- 13
+  edu_yrs[grepl("^mbo-plus",                             edu_raw, ignore.case = TRUE)] <- 14
+  # HBO / professional bachelor
+  edu_yrs[grepl("^hbo",                                  edu_raw, ignore.case = TRUE)] <- 16
+  # WO bachelor
+  edu_yrs[grepl("academic.*bachelor",                    edu_raw, ignore.case = TRUE)] <- 15
+  # WO master
+  edu_yrs[grepl("academic.*master",                      edu_raw, ignore.case = TRUE)] <- 17
+  # WO (unspecified)
+  edu_yrs[grepl("^academic|^university",                 edu_raw, ignore.case = TRUE)] <- 15
+  # PhD
+  edu_yrs[grepl("doctor|phd",                            edu_raw, ignore.case = TRUE)] <- 21
+  # Additional LISS text responses
+  edu_yrs[grepl("teacher training",                      edu_raw, ignore.case = TRUE)] <- 16
+  edu_yrs[grepl("conservatory|art academy",              edu_raw, ignore.case = TRUE)] <- 15
+  edu_yrs[grepl("special education",                     edu_raw, ignore.case = TRUE)] <- 10
+
+  # -- Education level (HBO / WO) ----------------------------------------------
   onderwijssoort <- rep(NA_character_, nrow(df))
   onderwijssoort[grepl("hbo", edu_raw, ignore.case = TRUE)] <- "Hoger beroepsonderwijs"
-  onderwijssoort[grepl("academic.*bachelor|academic.*master|^academic|^university|doctor|phd",
+  onderwijssoort[grepl("academic.*bachelor|academic.*master|^academic|
+                       ^university|doctor|phd",
                        edu_raw, ignore.case = TRUE)] <- "Wetenschappelijk onderwijs"
 
-  # -- Usual hours worked per week ---------------------------------------------
-  # LISS asks "How many hours do you actually work on average?"
+  # -- Hours worked per week ---------------------------------------------------
   hrs_col <- grep("actually work", names(df), value = TRUE, ignore.case = TRUE)[1]
   hours_worked <- if (!is.na(hrs_col)) as.numeric(df[[hrs_col]]) else NA_real_
 
   # -- Tenure (years with current employer) ------------------------------------
-  # LISS asks for the year the respondent started working for their current employer.
-  ten_col <- grep("year.*(current employer|enter into employment|start.*employment)", names(df), value = TRUE, ignore.case = TRUE)[1]
+  ten_col <- grep("year.*(current employer|enter into employment|start.*employment)",
+                  names(df), value = TRUE, ignore.case = TRUE)[1]
   start_year <- if (!is.na(ten_col)) as.numeric(df[[ten_col]]) else NA_real_
-  # Tenure = survey year - start year, but only if the start year is plausible (> 1900, < survey year)
-  tenure_years <- ifelse(!is.na(start_year) & start_year > 1900 & start_year < yr, yr - start_year, NA_real_)
+  tenure_years <- ifelse(!is.na(start_year) & start_year > 1900 & start_year < yr,
+                         yr - start_year, NA_real_)
 
-  # Return a clean data frame with only the columns we need (no raw survey columns)
-  data.frame(nomem_encr = as.character(df$nomem_encr), survey_year = yr,
-             liss_code = sel, age = as.numeric(df[[6]]),        # Column 6 contains age
+  data.frame(nomem_encr = as.character(df$nomem_encr),
+             survey_year = yr,
+             liss_code = sel,
+             age = age,
              education_years = edu_yrs,
              onderwijssoort = onderwijssoort,
              hours_worked = hours_worked,
@@ -771,98 +802,154 @@ process_early <- function(df, yr) {
              stringsAsFactors = FALSE)
 }
 
-# -- process_late(): parse LISS 2022-2024 (semicolon-separated, prefixed columns) --
-process_late <- function(df, yr) {
-  # Late waves use a prefixed naming scheme: cwXXyNNN where XX = year suffix, y = wave letter, NNN = variable code.
-  # We auto-detect the wave letter by finding the age column (which always ends in "003").
+# -- Late waves (2022-2024): prefixed-column format ----------------------------
+# These waves use a standardised naming scheme: cw<YY><letter><NNN> where
+# YY = last 2 digits of the year, letter = wave identifier, NNN = variable code.
+parse_late_work <- function(df, yr) {
+
   nm <- names(df)
-  age_idx <- grep("003$", nm)[1]           # First column ending in "003" = age column
-  wave_letter <- substr(nm[age_idx], 5, 5)  # Extract wave letter (e.g., "p" from "cw23p003")
 
-  # Prefix = "cw" + last 2 digits of year + wave letter -> e.g. "cw23p"
+  # Detect the wave letter from the age column (always ends in "003")
+  age_idx <- grep("003$", nm)[1]
+  wave_letter <- substr(nm[age_idx], 5, 5)
   prefix <- paste0("cw", substr(yr, 3, 4), wave_letter)
-  # Age column = prefix + "003"
-  age_col <- paste0(prefix, "003")
 
-  # -- Field-of-study detection ------------------------------------------------
-  # Field columns follow the pattern cwXXy011 through cwXXy027 (codes 011-027).
-  # Regex: "^" + prefix + "0[12][0-9]$" matches "cw23p011", "cw23p012", ..., "cw23p027"
+  # -- Field of study (columns cwXX011 through cwXX027) ------------------------
   fcols <- nm[grep(paste0("^", prefix, "0[12][0-9]$"), nm)]
-  # Extract the last 3 digits of each column name to get the field code (e.g. "011")
   fcodes <- sub(".*([0-9]{3})$", "\\1", fcols)
 
-  # Loop over respondents row-by-row (each respondent can select only one field)
   nr <- nrow(df)
-  sel <- rep(NA_character_, nr)             # Initialise field selection as NA
+  sel <- rep(NA_character_, nr)
   for (i in seq_len(nr)) {
-    # Get the values for all field columns for this respondent
     vals <- as.integer(df[i, fcols])
-    # Find which codes have value 1 (currently following) or 2 (completed)
     idx <- which(vals %in% c(1, 2))
-    # If any field selected, take the first one
     if (length(idx) > 0) sel[i] <- fcodes[idx[1]]
   }
 
-  # -- Education: column cwXX525 (LISS standard education code 1-13) ----------
+  # -- Education: column cwXX525 (LISS standard code 1-13) ---------------------
   edu_col <- paste0(prefix, "525")
   if (edu_col %in% nm) {
     edu_code <- as.numeric(df[[edu_col]])
     edu_yrs <- rep(NA_real_, nr)
-    # Map LISS standard education codes 1-13 to years of education.
-    # Convention from published LISS papers (Leuven, Oosterbeek & van der Klaauw 2013;
-    # Bozza 2022): compulsory schooling starts at age 6, so primary = 6 years.
-    # Dutch pathways: primary(6) + secondary + tertiary.
-    edu_yrs[edu_code == 1] <- 0     # No education / primary not completed
-    edu_yrs[edu_code == 2] <- 6     # Primary (basisschool, ages 6-12)
-    edu_yrs[edu_code == 3] <- 10    # VMBO / lower secondary (6+4)
-    edu_yrs[edu_code == 4] <- 11    # HAVO / upper secondary (6+5)
-    edu_yrs[edu_code == 5] <- 12    # VWO / pre-university (6+6)
-    edu_yrs[edu_code == 6] <- 13    # MBO / intermediate vocational (12+1, or 10+3)
-    edu_yrs[edu_code == 7] <- 16    # HBO / professional bachelor (12+4 via VWO, 13+3 via MBO)
-    edu_yrs[edu_code == 8] <- 15    # WO bachelor / research university (12+3)
-    edu_yrs[edu_code %in% 9:10] <- 17   # WO master (15+2) --- code 9; doctor (code 10) listed here but corrected below
-    edu_yrs[edu_code == 10] <- 21   # PhD / doctorate (17+4)
-    edu_yrs[edu_code >= 11] <- 21   # Higher (postdoc / professorship) --- cap at PhD level
-  } else { edu_yrs <- rep(NA_real_, nr) }
+    edu_yrs[edu_code == 1]  <- 0    # No education
+    edu_yrs[edu_code == 2]  <- 6    # Primary
+    edu_yrs[edu_code == 3]  <- 10   # VMBO
+    edu_yrs[edu_code == 4]  <- 11   # HAVO
+    edu_yrs[edu_code == 5]  <- 12   # VWO
+    edu_yrs[edu_code == 6]  <- 13   # MBO
+    edu_yrs[edu_code == 7]  <- 16   # HBO
+    edu_yrs[edu_code == 8]  <- 15   # WO bachelor
+    edu_yrs[edu_code %in% 9:10] <- 17  # WO master
+    edu_yrs[edu_code == 10] <- 21   # PhD
+    edu_yrs[edu_code >= 11] <- 21   # Postdoc / professorship
+  } else {
+    edu_yrs <- rep(NA_real_, nr)
+  }
 
-  # -- Education level (HBO vs WO) from standardized education code ------------
+  # -- Education level (HBO / WO) ----------------------------------------------
   if (exists("edu_code") && length(edu_code) > 0) {
     onderwijssoort <- rep(NA_character_, nr)
-    onderwijssoort[edu_code == 7] <- "Hoger beroepsonderwijs"
-    onderwijssoort[edu_code %in% 8:10] <- "Wetenschappelijk onderwijs"
+    onderwijssoort[edu_code == 7]        <- "Hoger beroepsonderwijs"
+    onderwijssoort[edu_code %in% 8:10]  <- "Wetenschappelijk onderwijs"
   } else {
     onderwijssoort <- rep(NA_character_, nr)
   }
 
-  # -- Hours: column cwXX126 (actual hours worked per week) --------------------
+  # -- Hours worked: column cwXX126 --------------------------------------------
   hrs_col <- paste0(prefix, "126")
   hours_worked <- if (hrs_col %in% nm) as.numeric(df[[hrs_col]]) else rep(NA_real_, nr)
 
-  # -- Tenure: column cwXX149 (year started with current employer) -------------
+  # -- Tenure: column cwXX149 (year started with employer) ----------------------
   ten_col <- paste0(prefix, "149")
   start_year_lt <- if (ten_col %in% nm) as.numeric(df[[ten_col]]) else rep(NA_real_, nr)
   tenure_years <- ifelse(!is.na(start_year_lt) & start_year_lt > 1900 & start_year_lt < yr,
                          yr - start_year_lt, NA_real_)
 
-  # Return a clean data frame (same structure as process_early)
-  data.frame(
-    nomem_encr = as.character(df[[1]]),
-    survey_year = yr,
-    liss_code = sel,
-    age = as.numeric(df[[age_col]]),
-    education_years = edu_yrs,
-    onderwijssoort = onderwijssoort,
-    hours_worked = hours_worked,
-    tenure_years = tenure_years,
-    stringsAsFactors = FALSE
-  )
+  data.frame(nomem_encr = as.character(df[[1]]),
+             survey_year = yr,
+             liss_code = sel,
+             age = as.numeric(df[[age_col]]),
+             education_years = edu_yrs,
+             onderwijssoort = onderwijssoort,
+             hours_worked = hours_worked,
+             tenure_years = tenure_years,
+             stringsAsFactors = FALSE)
 }
 
-# -- Apply the appropriate parser to each year and stack results ---------------
-# 2020-2021 use early-format parsers; 2022-2024 use late-format parsers.
-work_all <- bind_rows(process_early(LISS2020WS, 2020), process_early(LISS2021WS, 2021),
-                      process_late(LISS2022WS, 2022), process_late(LISS2023WS, 2023),
-                      process_late(LISS2024WS, 2024))
+# -- Parse all years and combine -----------------------------------------------
+work_all <- bind_rows(
+  parse_early_work(LISS2020WS, 2020),
+  parse_early_work(LISS2021WS, 2021),
+  parse_late_work(LISS2022WS, 2022),
+  parse_late_work(LISS2023WS, 2023),
+  parse_late_work(LISS2024WS, 2024)
+)
+```
+
+## 6.3 Income Module
+
+```{r liss-parse-income}
+# -- Parse gross monthly income and partner status -----------------------------
+# Early waves use descriptive column names; late waves use prefixed codes.
+parse_income <- function(df, yr) {
+
+  if (yr <= 2021) {
+    # -- Early wave ------------------------------------------------------------
+    names(df)[1] <- "nomem_encr"
+    gc <- grep("gross wages in total", names(df), value = TRUE, ignore.case = TRUE)[1]
+    partner_col <- grep("household head lives together with a partner",
+                        names(df), value = TRUE, ignore.case = TRUE)[1]
+
+    data.frame(nomem_encr = as.character(df$nomem_encr),
+               survey_year = yr,
+               gross_monthly_income = if (!is.na(gc)) as.numeric(df[[gc]]) else NA_real_,
+               partner = if (!is.na(partner_col)) as.numeric(df[[partner_col]]) == 1 else NA,
+               stringsAsFactors = FALSE)
+
+  } else {
+    # -- Late wave (prefixed columns) ------------------------------------------
+    nm <- names(df)
+    wave_letter <- substr(nm[grep("372$", nm)[1]], 5, 5)
+    prefix <- paste0("ci", substr(as.character(yr), 3, 4), wave_letter)
+    inc_col <- paste0(prefix, "372")
+    partner_col <- paste0(prefix, "003")
+
+    data.frame(nomem_encr = as.character(df[[1]]),
+               survey_year = yr,
+               gross_monthly_income = if (inc_col %in% nm) as.numeric(df[[inc_col]]) else NA_real_,
+               partner = if (partner_col %in% nm) as.numeric(df[[partner_col]]) == 1 else NA,
+               stringsAsFactors = FALSE)
+  }
+}
+
+income_all <- bind_rows(
+  parse_income(LISS2020ES, 2020),
+  parse_income(LISS2021ES, 2021),
+  parse_income(LISS2022ES, 2022),
+  parse_income(LISS2023ES, 2023),
+  parse_income(LISS2024ES, 2024)
+)
+```
+
+## 6.4 Merge Work and Income
+
+```{r liss-merge}
+# -- Combine work + income data into a single panel ----------------------------
+LISS_panel <- work_all %>%
+  inner_join(income_all, by = c("nomem_encr", "survey_year")) %>%
+  left_join(field_map, by = c("liss_code" = "code")) %>%
+  filter(!is.na(field),
+         !is.na(gross_monthly_income),
+         gross_monthly_income > 0) %>%
+  mutate(
+    log_income    = log(gross_monthly_income),
+    age_sq        = age^2,
+    hours_sq      = hours_worked^2,
+    partner       = as.logical(partner),
+    education_years = ifelse(is.na(education_years),
+                             median(education_years, na.rm = TRUE),
+                             education_years)
+  )
 ```
 
 ```{r process-liss-income}
