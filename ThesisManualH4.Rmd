@@ -813,6 +813,7 @@ parse_late_work <- function(df, yr) {
   age_idx <- grep("003$", nm)[1]
   wave_letter <- substr(nm[age_idx], 5, 5)
   prefix <- paste0("cw", substr(yr, 3, 4), wave_letter)
+  age_col <- paste0(prefix, "003")
 
   # -- Field of study (columns cwXX011 through cwXX027) ------------------------
   fcols <- nm[grep(paste0("^", prefix, "0[12][0-9]$"), nm)]
