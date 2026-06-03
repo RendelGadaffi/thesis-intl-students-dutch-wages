@@ -1048,7 +1048,6 @@ cat('\n\\textbf{Panel A: All Education Levels}\
 
 etable(a_ols_full, a_iv_full, a_ols_stem, a_iv_stem, a_ols_nstem, a_iv_nstem,
        se.below = TRUE,
-       drop = 'Const|age|education|hours|partner',
        dict = c(share_int_agg = 'Intl. Share'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
@@ -1093,7 +1092,6 @@ cat('\n\\textbf{Panel B: HBO (Higher Professional Education)}\
 
 etable(b_ols_full, b_iv_full, b_ols_stem, b_iv_stem, b_ols_nstem, b_iv_nstem,
        se.below = TRUE,
-       drop = 'Const|age|education|hours|partner',
        dict = c(share_int_agg = 'Intl. Share'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
@@ -1138,7 +1136,6 @@ cat('\n\\textbf{Panel C: WO (Research University)}\
 
 etable(c_ols_full, c_iv_full, c_ols_stem, c_iv_stem, c_ols_nstem, c_iv_nstem,
        se.below = TRUE,
-       drop = 'Const|age|education|hours|partner',
        dict = c(share_int_agg = 'Intl. Share'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
@@ -1181,7 +1178,6 @@ cat('\n\n\\textbf{Panel D: HBO + WO (Tertiary Education)}\\n\n')
 
 etable(d_ols_full, d_iv_full, d_ols_stem, d_iv_stem, d_ols_nstem, d_iv_nstem,
        se.below = TRUE,
-       drop = 'Const|age|education|hours|partner',
        dict = c(share_int_agg = 'Intl. Share'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
