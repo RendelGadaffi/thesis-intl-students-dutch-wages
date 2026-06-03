@@ -879,7 +879,7 @@ parse_income <- function(df, yr) {
     data.frame(nomem_encr = as.character(df$nomem_encr),
                survey_year = yr,
                gross_income = if (!is.na(gc)) as.numeric(df[[gc]]) else NA_real_,
-               partner = if (!is.na(partner_col)) as.numeric(df[[partner_col]]) == 1 else NA,
+               partner = if (!is.na(partner_col)) tolower(trimws(as.character(df[[partner_col]]))) == "yes" else NA,
                stringsAsFactors = FALSE)
 
   } else {
