@@ -166,64 +166,22 @@ total_seniors <- cbs_raw %>%
   group_by(studierichting, onderwijssoort, year) %>%
   summarise(total_seniors = sum(students, na.rm = TRUE), .groups = "drop")
 
-# International-background seniors excluding Nederlandse Cariben.
-# The subgroups file only has herkomstland = "Totaal" (binary foreign/Dutch),
-# so we use the Internationals file to break down by origin. Caribbean students
-# are Kingdom citizens who don't need Schengen visas — the visa instrument
-# cannot shift their enrollment, so exclude them from the numerator.
-intl_seniors <- read_delim(file.path(base, "Students by homeland, gender, FoS, Senior year, Subgroupped.csv"),
-                           delim = ";", show_col_types = FALSE) %>%
-  clean_names() %>%
-  filter(herkomstland != "Nederlandse Cariben",
-         geboorteland_ouders == "Geboren buiten Nederland") %>%
-  mutate(
-    count = as.numeric(str_trim(ouderejaarsstudenten_aantal)),
-    year = as.integer(str_sub(perioden, 1, 4))
-  ) %>%
-  filter(!is.na(count), count > 0) %>%
+# International-background seniors (parents born outside NL)
+# Note: this includes Nederlandse Cariben students; they are proportionally
+# removed below using the Internationals file's herkomstland breakdown.
+intl_seniors <- cbs_raw %>%
+  filter(geboorteland_ouders == "Geboren buiten Nederland",
+         !is.na(students), students > 0) %>%
   group_by(studierichting, onderwijssoort, year) %>%
-  summarise(intl_seniors = sum(count, na.rm = TRUE), .groups = "drop")
+  summarise(intl_seniors = sum(students, na.rm = TRUE), .groups = "drop")
 
-# Map to DUO fields separately — subgroups file uses granular sub-field codes
-# (e.g. "051 Biologie en biochemie") while Intl file uses aggregate codes
-# (e.g. "05 Wiskunde, natuurwetenschappen"). They cannot be joined on studierichting.
-total_duo <- total_seniors %>%
-  inner_join(cbs_field_map, by = "studierichting") %>%
-  filter(!is.na(field)) %>%
-  group_by(field, onderwijssoort, year) %>%
-  summarise(total_seniors = sum(total_seniors, na.rm = TRUE), .groups = "drop")
-
-intl_duo <- intl_seniors %>%
-  inner_join(cbs_field_map_instr, by = "studierichting") %>%
-  filter(!is.na(field)) %>%
-  group_by(field, onderwijssoort, year) %>%
-  summarise(intl_seniors = sum(intl_seniors, na.rm = TRUE), .groups = "drop")
-
-field_shares <- total_duo %>%
-  left_join(intl_duo, by = c("field", "onderwijssoort", "year")) %>%
+cbs_share <- total_seniors %>%
+  left_join(intl_seniors, by = c("studierichting", "onderwijssoort", "year")) %>%
   mutate(
     share_int = ifelse(total_seniors > 0,
                        coalesce(intl_seniors, 0) / total_seniors, NA_real_),
     share_int = pmin(share_int, 1)
-  ) %>%
-  select(field, onderwijssoort, year, share_int)
-
-total_duo_agg <- total_duo %>%
-  group_by(field, year) %>%
-  summarise(total_seniors = sum(total_seniors, na.rm = TRUE), .groups = "drop")
-
-intl_duo_agg <- intl_duo %>%
-  group_by(field, year) %>%
-  summarise(intl_seniors = sum(intl_seniors, na.rm = TRUE), .groups = "drop")
-
-field_shares_agg <- total_duo_agg %>%
-  left_join(intl_duo_agg, by = c("field", "year")) %>%
-  mutate(
-    share_int = ifelse(total_seniors > 0,
-                       coalesce(intl_seniors, 0) / total_seniors, NA_real_),
-    share_int = pmin(share_int, 1)
-  ) %>%
-  select(field, year, share_int)
+  )
 
 # Map CBS 3-digit sub-field codes to DUO field names.
 # Skips aggregate codes (z.n.d. = zonder nadere detaillering) since
@@ -309,6 +267,100 @@ cbs_field_map_instr <- tibble(
                 "agriculture", "healthcare",
                 "services", NA_character_)
 )
+
+# Map CBS shares to DUO field names (aggregates sub-fields to DUO level)
+field_shares <- cbs_share %>%
+  inner_join(cbs_field_map, by = "studierichting") %>%
+  group_by(field, onderwijssoort, year) %>%
+  summarise(share_int = weighted.mean(share_int, total_seniors, na.rm = TRUE),
+            .groups = "drop")
+
+# Aggregate share_int for the joint (pooled) specification
+field_shares_agg <- cbs_share %>%
+  inner_join(cbs_field_map, by = "studierichting") %>%
+  group_by(field, year) %>%
+  summarise(share_int = weighted.mean(share_int, total_seniors, na.rm = TRUE),
+            .groups = "drop")
+
+# -- Proportional Cariben correction -------------------------------------------
+# Caribbean students are Kingdom citizens who don't need Schengen visas.
+# The instrument cannot shift their enrollment, so remove their proportional
+# contribution from share_int using the Internationals file's breakdown.
+# This preserves the subgroups file's foreign counts (which give the correct
+# F-stat) while proportionally removing only the Cariben portion.
+
+# Cariben foreign students per aggregate field from the Internationals file
+cariben_raw <- read_delim(file.path(base, "Students by homeland, gender, FoS, Senior year, Subgroupped.csv"),
+                          delim = ";", show_col_types = FALSE) %>%
+  clean_names() %>%
+  filter(herkomstland == "Nederlandse Cariben",
+         geboorteland_ouders == "Geboren buiten Nederland") %>%
+  mutate(
+    count = as.numeric(str_trim(ouderejaarsstudenten_aantal)),
+    year = as.integer(str_sub(perioden, 1, 4))
+  ) %>%
+  filter(!is.na(count), count > 0) %>%
+  group_by(studierichting, onderwijssoort, year) %>%
+  summarise(cariben = sum(count, na.rm = TRUE), .groups = "drop")
+
+# Total foreign students per aggregate field from the Internationals file
+intl_total_raw <- read_delim(file.path(base, "Students by homeland, gender, FoS, Senior year, Subgroupped.csv"),
+                             delim = ";", show_col_types = FALSE) %>%
+  clean_names() %>%
+  filter(geboorteland_ouders == "Geboren buiten Nederland") %>%
+  mutate(
+    count = as.numeric(str_trim(ouderejaarsstudenten_aantal)),
+    year = as.integer(str_sub(perioden, 1, 4))
+  ) %>%
+  filter(!is.na(count), count > 0) %>%
+  group_by(studierichting, onderwijssoort, year) %>%
+  summarise(intl_total = sum(count, na.rm = TRUE), .groups = "drop")
+
+# Map both to DUO fields
+cariben_duo <- cariben_raw %>%
+  inner_join(cbs_field_map_instr, by = "studierichting") %>%
+  filter(!is.na(field)) %>%
+  group_by(field, onderwijssoort, year) %>%
+  summarise(cariben = sum(cariben, na.rm = TRUE), .groups = "drop")
+
+intl_total_duo <- intl_total_raw %>%
+  inner_join(cbs_field_map_instr, by = "studierichting") %>%
+  filter(!is.na(field)) %>%
+  group_by(field, onderwijssoort, year) %>%
+  summarise(intl_total = sum(intl_total, na.rm = TRUE), .groups = "drop")
+
+# Cariben share of foreign students per DUO field
+cariben_share <- cariben_duo %>%
+  left_join(intl_total_duo, by = c("field", "onderwijssoort", "year")) %>%
+  mutate(cariben_share = ifelse(intl_total > 0, cariben / intl_total, 0)) %>%
+  select(field, onderwijssoort, year, cariben_share)
+
+cariben_share_agg <- cariben_share %>%
+  group_by(field, year) %>%
+  summarise(
+    cariben = sum(cariben, na.rm = TRUE),
+    intl_total = sum(intl_total, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(cariben_share = ifelse(intl_total > 0, cariben / intl_total, 0)) %>%
+  select(field, year, cariben_share)
+
+# Apply correction: share_int = share_int * (1 - cariben_share)
+field_shares <- field_shares %>%
+  left_join(cariben_share, by = c("field", "onderwijssoort", "year")) %>%
+  mutate(
+    cariben_share = coalesce(cariben_share, 0),
+    share_int = share_int * (1 - cariben_share)
+  ) %>%
+  select(field, onderwijssoort, year, share_int)
+
+field_shares_agg <- field_shares_agg %>%
+  left_join(cariben_share_agg, by = c("field", "year")) %>%
+  mutate(
+    cariben_share = coalesce(cariben_share, 0),
+    share_int = share_int * (1 - cariben_share)
+  ) %>%
+  select(field, year, share_int)
 ```
 
 # 4. Process CBS -> Nationality Shares (2010, per AEA 10-year lag)
