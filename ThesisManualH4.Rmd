@@ -1010,32 +1010,32 @@ fe <- "field + survey_year"
 
 # --- Panel A: All onderwijssoort (pooled) ------------------------------------
 
-a_ols_full  <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+a_ols_full  <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field + onderwijssoort,
                       data = est_data, cluster = ~ field)
-a_iv_full   <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | field |
+a_iv_full   <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | field + onderwijssoort |
                        share_int_agg ~ Z_visa_field_agg,
                       data = est_data, cluster = ~ field)
-a_ols_stem  <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+a_ols_stem  <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field + onderwijssoort,
                       data = est_data, cluster = ~ field,
                       subset = ~ stem)
-a_iv_stem   <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | field |
+a_iv_stem   <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | field + onderwijssoort |
                        share_int_agg ~ Z_visa_field_agg,
                       data = est_data, cluster = ~ field,
                       subset = ~ stem)
-a_ols_nstem <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+a_ols_nstem <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field + onderwijssoort,
                       data = est_data, cluster = ~ field,
                       subset = ~ !stem)
-a_iv_nstem  <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | field |
+a_iv_nstem  <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | field + onderwijssoort |
                        share_int_agg ~ Z_visa_field_agg,
                       data = est_data, cluster = ~ field,
                       subset = ~ !stem)
 
 # First-stage F-stats (Panel A)
-fs_a_full <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+fs_a_full <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field + onderwijssoort,
                     data = est_data, cluster = ~ field)
-fs_a_stem <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+fs_a_stem <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field + onderwijssoort,
                     data = est_data, cluster = ~ field, subset = ~ stem)
-fs_a_nstem <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+fs_a_nstem <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field + onderwijssoort,
                      data = est_data, cluster = ~ field, subset = ~ !stem)
 
 f_a_full  <- round(wald(fs_a_full,  'Z_visa_field_agg', print = FALSE)$stat, 1)
