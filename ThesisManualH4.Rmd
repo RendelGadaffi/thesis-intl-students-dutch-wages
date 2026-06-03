@@ -730,7 +730,7 @@ for (yr in survey_years) {
 
     # Field of study: columns 12-28 map to codes 011-027
     # Data stores "Yes"/"No" strings (not numeric codes) — match "Yes" directly
-    field_codes <- sprintf("%03d", 11:27)
+    field_codes <- sprintf("%03d", 11:27)   
     mat <- as.data.frame(lapply(df[, 12:28], function(x) tolower(trimws(as.character(x))) == "yes"))
     liss_code <- apply(mat, 1, function(r) {
       idx <- which(r)
