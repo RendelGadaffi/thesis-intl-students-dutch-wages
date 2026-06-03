@@ -786,9 +786,9 @@ for (yr in survey_years) {
       edu_code <- as.numeric(df[[edu_col]])
       # Map code 1-13 to years of schooling (Leuven et al. 2013 convention)
       edu_yrs_vec <- c(0, 6, 10, 11, 12, 13, 16, 15, 17, 21, 21, 21, 21)
-      edu_yrs <- edu_yrs_vec[edu_code]
+      education_years <- edu_yrs_vec[edu_code]
     } else {
-      edu_yrs <- rep(NA_real_, nr)
+      education_years <- rep(NA_real_, nr)
     }
 
     # Hours worked: cwXX126
