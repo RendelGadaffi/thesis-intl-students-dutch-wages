@@ -213,3 +213,250 @@ etable(d_ols_full, d_iv_full, d_ols_stem, d_iv_stem, d_ols_nstem, d_iv_nstem,
        extralines = list('F-stat (1st stage)' =
                           c(f_d_full, f_d_full, f_d_stem, f_d_stem, f_d_nstem, f_d_nstem)))
 ```
+
+```{r regressions-z, results='asis'}
+# -- Standardized regressions ---------------------------------------------------
+# Same 4 panels as above but with z-score standardized continuous variables
+# so coefficients represent the effect of a one-SD change.
+
+est_data_z <- est_data %>%
+  mutate(across(c(share_int_agg, age, education_years, hours_worked,
+                   log_income, Z_visa_field_agg),
+                ~ ( . - mean(., na.rm = TRUE)) / sd(., na.rm = TRUE),
+                .names = "{.col}_z")) %>%
+  mutate(age_sq_z = age_z^2,
+         hours_sq_z = hours_worked_z^2)
+
+cat('\n\n\\textbf{Standardized Regressions}\\n\n')
+cat('All continuous variables normalized to z-scores (mean 0, SD 1).\n\n')
+
+# --- Panel A: All onderwijssoort (pooled) ------------------------------------
+
+az_ols_full  <- feols(log_income_z ~ share_int_agg_z + age_z + age_sq_z +
+                        education_years_z + hours_worked_z + hours_sq_z +
+                        partner | field,
+                      data = est_data_z, cluster = ~ field)
+az_iv_full   <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
+                        hours_worked_z + hours_sq_z + partner | field |
+                        share_int_agg_z ~ Z_visa_field_agg_z,
+                      data = est_data_z, cluster = ~ field)
+az_ols_stem  <- feols(log_income_z ~ share_int_agg_z + age_z + age_sq_z +
+                        education_years_z + hours_worked_z + hours_sq_z +
+                        partner | field,
+                      data = est_data_z, cluster = ~ field, subset = ~ stem)
+az_iv_stem   <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
+                        hours_worked_z + hours_sq_z + partner | field |
+                        share_int_agg_z ~ Z_visa_field_agg_z,
+                      data = est_data_z, cluster = ~ field, subset = ~ stem)
+az_ols_nstem <- feols(log_income_z ~ share_int_agg_z + age_z + age_sq_z +
+                        education_years_z + hours_worked_z + hours_sq_z +
+                        partner | field,
+                      data = est_data_z, cluster = ~ field, subset = ~ !stem)
+az_iv_nstem  <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
+                        hours_worked_z + hours_sq_z + partner | field |
+                        share_int_agg_z ~ Z_visa_field_agg_z,
+                      data = est_data_z, cluster = ~ field, subset = ~ !stem)
+
+fs_az_full <- feols(share_int_agg_z ~ Z_visa_field_agg_z + age_z + age_sq_z +
+                      education_years_z + hours_worked_z + hours_sq_z +
+                      partner | field,
+                    data = est_data_z, cluster = ~ field)
+fs_az_stem <- feols(share_int_agg_z ~ Z_visa_field_agg_z + age_z + age_sq_z +
+                      education_years_z + hours_worked_z + hours_sq_z +
+                      partner | field,
+                    data = est_data_z, cluster = ~ field, subset = ~ stem)
+fs_az_nstem <- feols(share_int_agg_z ~ Z_visa_field_agg_z + age_z + age_sq_z +
+                       education_years_z + hours_worked_z + hours_sq_z +
+                       partner | field,
+                     data = est_data_z, cluster = ~ field, subset = ~ !stem)
+
+f_az_full  <- round(wald(fs_az_full,  'Z_visa_field_agg_z', print = FALSE)$stat, 1)
+f_az_stem  <- round(wald(fs_az_stem,  'Z_visa_field_agg_z', print = FALSE)$stat, 1)
+f_az_nstem <- round(wald(fs_az_nstem, 'Z_visa_field_agg_z', print = FALSE)$stat, 1)
+
+cat('\n\n\\textbf{Panel A: All Education Levels (Standardized)}\\n\n')
+
+etable(az_ols_full, az_iv_full, az_ols_stem, az_iv_stem, az_ols_nstem, az_iv_nstem,
+       se.below = TRUE,
+       dict = c(share_int_agg_z = 'Intl. Share (z)', Z_visa_field_agg_z = 'Visa Instr. (z)'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
+       extralines = list('F-stat (1st stage)' =
+                          c(f_az_full, f_az_full, f_az_stem, f_az_stem,
+                            f_az_nstem, f_az_nstem)))
+
+# --- Panel B: HBO only -------------------------------------------------------
+
+hbo_z <- est_data_z %>% filter(onderwijssoort == 'Hoger beroepsonderwijs')
+
+bz_ols_full  <- feols(log_income_z ~ share_int_agg_z + age_z + age_sq_z +
+                        education_years_z + hours_worked_z + hours_sq_z +
+                        partner | field,
+                      data = hbo_z, cluster = ~ field)
+bz_iv_full   <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
+                        hours_worked_z + hours_sq_z + partner | field |
+                        share_int_agg_z ~ Z_visa_field_agg_z,
+                      data = hbo_z, cluster = ~ field)
+bz_ols_stem  <- feols(log_income_z ~ share_int_agg_z + age_z + age_sq_z +
+                        education_years_z + hours_worked_z + hours_sq_z +
+                        partner | field,
+                      data = hbo_z, cluster = ~ field, subset = ~ stem)
+bz_iv_stem   <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
+                        hours_worked_z + hours_sq_z + partner | field |
+                        share_int_agg_z ~ Z_visa_field_agg_z,
+                      data = hbo_z, cluster = ~ field, subset = ~ stem)
+bz_ols_nstem <- feols(log_income_z ~ share_int_agg_z + age_z + age_sq_z +
+                        education_years_z + hours_worked_z + hours_sq_z +
+                        partner | field,
+                      data = hbo_z, cluster = ~ field, subset = ~ !stem)
+bz_iv_nstem  <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
+                        hours_worked_z + hours_sq_z + partner | field |
+                        share_int_agg_z ~ Z_visa_field_agg_z,
+                      data = hbo_z, cluster = ~ field, subset = ~ !stem)
+
+fs_bz_full <- feols(share_int_agg_z ~ Z_visa_field_agg_z + age_z + age_sq_z +
+                      education_years_z + hours_worked_z + hours_sq_z +
+                      partner | field,
+                    data = hbo_z, cluster = ~ field)
+fs_bz_stem <- feols(share_int_agg_z ~ Z_visa_field_agg_z + age_z + age_sq_z +
+                      education_years_z + hours_worked_z + hours_sq_z +
+                      partner | field,
+                    data = hbo_z, cluster = ~ field, subset = ~ stem)
+fs_bz_nstem <- feols(share_int_agg_z ~ Z_visa_field_agg_z + age_z + age_sq_z +
+                       education_years_z + hours_worked_z + hours_sq_z +
+                       partner | field,
+                     data = hbo_z, cluster = ~ field, subset = ~ !stem)
+
+f_bz_full  <- round(wald(fs_bz_full,  'Z_visa_field_agg_z', print = FALSE)$stat, 1)
+f_bz_stem  <- round(wald(fs_bz_stem,  'Z_visa_field_agg_z', print = FALSE)$stat, 1)
+f_bz_nstem <- round(wald(fs_bz_nstem, 'Z_visa_field_agg_z', print = FALSE)$stat, 1)
+
+cat('\n\n\\textbf{Panel B: HBO (Standardized)}\\n\n')
+
+etable(bz_ols_full, bz_iv_full, bz_ols_stem, bz_iv_stem, bz_ols_nstem, bz_iv_nstem,
+       se.below = TRUE,
+       dict = c(share_int_agg_z = 'Intl. Share (z)', Z_visa_field_agg_z = 'Visa Instr. (z)'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
+       extralines = list('F-stat (1st stage)' =
+                          c(f_bz_full, f_bz_full, f_bz_stem, f_bz_stem,
+                            f_bz_nstem, f_bz_nstem)))
+
+# --- Panel C: WO only --------------------------------------------------------
+
+wo_z <- est_data_z %>% filter(onderwijssoort == 'Wetenschappelijk onderwijs')
+
+cz_ols_full  <- feols(log_income_z ~ share_int_agg_z + age_z + age_sq_z +
+                        education_years_z + hours_worked_z + hours_sq_z +
+                        partner | field,
+                      data = wo_z, cluster = ~ field)
+cz_iv_full   <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
+                        hours_worked_z + hours_sq_z + partner | field |
+                        share_int_agg_z ~ Z_visa_field_agg_z,
+                      data = wo_z, cluster = ~ field)
+cz_ols_stem  <- feols(log_income_z ~ share_int_agg_z + age_z + age_sq_z +
+                        education_years_z + hours_worked_z + hours_sq_z +
+                        partner | field,
+                      data = wo_z, cluster = ~ field, subset = ~ stem)
+cz_iv_stem   <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
+                        hours_worked_z + hours_sq_z + partner | field |
+                        share_int_agg_z ~ Z_visa_field_agg_z,
+                      data = wo_z, cluster = ~ field, subset = ~ stem)
+cz_ols_nstem <- feols(log_income_z ~ share_int_agg_z + age_z + age_sq_z +
+                        education_years_z + hours_worked_z + hours_sq_z +
+                        partner | field,
+                      data = wo_z, cluster = ~ field, subset = ~ !stem)
+cz_iv_nstem  <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
+                        hours_worked_z + hours_sq_z + partner | field |
+                        share_int_agg_z ~ Z_visa_field_agg_z,
+                      data = wo_z, cluster = ~ field, subset = ~ !stem)
+
+fs_cz_full <- feols(share_int_agg_z ~ Z_visa_field_agg_z + age_z + age_sq_z +
+                      education_years_z + hours_worked_z + hours_sq_z +
+                      partner | field,
+                    data = wo_z, cluster = ~ field)
+fs_cz_stem <- feols(share_int_agg_z ~ Z_visa_field_agg_z + age_z + age_sq_z +
+                      education_years_z + hours_worked_z + hours_sq_z +
+                      partner | field,
+                    data = wo_z, cluster = ~ field, subset = ~ stem)
+fs_cz_nstem <- feols(share_int_agg_z ~ Z_visa_field_agg_z + age_z + age_sq_z +
+                       education_years_z + hours_worked_z + hours_sq_z +
+                       partner | field,
+                     data = wo_z, cluster = ~ field, subset = ~ !stem)
+
+f_cz_full  <- round(wald(fs_cz_full,  'Z_visa_field_agg_z', print = FALSE)$stat, 1)
+f_cz_stem  <- round(wald(fs_cz_stem,  'Z_visa_field_agg_z', print = FALSE)$stat, 1)
+f_cz_nstem <- round(wald(fs_cz_nstem, 'Z_visa_field_agg_z', print = FALSE)$stat, 1)
+
+cat('\n\n\\textbf{Panel C: WO (Standardized)}\\n\n')
+
+etable(cz_ols_full, cz_iv_full, cz_ols_stem, cz_iv_stem, cz_ols_nstem, cz_iv_nstem,
+       se.below = TRUE,
+       dict = c(share_int_agg_z = 'Intl. Share (z)', Z_visa_field_agg_z = 'Visa Instr. (z)'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
+       extralines = list('F-stat (1st stage)' =
+                          c(f_cz_full, f_cz_full, f_cz_stem, f_cz_stem,
+                            f_cz_nstem, f_cz_nstem)))
+
+# --- Panel D: HBO + WO pooled -------------------------------------------------
+
+hbo_wo_z <- est_data_z %>% filter(onderwijssoort %in% c("Hoger beroepsonderwijs", "Wetenschappelijk onderwijs"))
+
+dz_ols_full  <- feols(log_income_z ~ share_int_agg_z + age_z + age_sq_z +
+                        education_years_z + hours_worked_z + hours_sq_z +
+                        partner | field + onderwijssoort,
+                      data = hbo_wo_z, cluster = ~ field)
+dz_iv_full   <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
+                        hours_worked_z + hours_sq_z + partner | field + onderwijssoort |
+                        share_int_agg_z ~ Z_visa_field_agg_z,
+                      data = hbo_wo_z, cluster = ~ field)
+dz_ols_stem  <- feols(log_income_z ~ share_int_agg_z + age_z + age_sq_z +
+                        education_years_z + hours_worked_z + hours_sq_z +
+                        partner | field + onderwijssoort,
+                      data = hbo_wo_z, cluster = ~ field, subset = ~ stem)
+dz_iv_stem   <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
+                        hours_worked_z + hours_sq_z + partner | field + onderwijssoort |
+                        share_int_agg_z ~ Z_visa_field_agg_z,
+                      data = hbo_wo_z, cluster = ~ field, subset = ~ stem)
+dz_ols_nstem <- feols(log_income_z ~ share_int_agg_z + age_z + age_sq_z +
+                        education_years_z + hours_worked_z + hours_sq_z +
+                        partner | field + onderwijssoort,
+                      data = hbo_wo_z, cluster = ~ field, subset = ~ !stem)
+dz_iv_nstem  <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
+                        hours_worked_z + hours_sq_z + partner | field + onderwijssoort |
+                        share_int_agg_z ~ Z_visa_field_agg_z,
+                      data = hbo_wo_z, cluster = ~ field, subset = ~ !stem)
+
+fs_dz_full <- feols(share_int_agg_z ~ Z_visa_field_agg_z + age_z + age_sq_z +
+                      education_years_z + hours_worked_z + hours_sq_z +
+                      partner | field + onderwijssoort,
+                    data = hbo_wo_z, cluster = ~ field)
+fs_dz_stem <- feols(share_int_agg_z ~ Z_visa_field_agg_z + age_z + age_sq_z +
+                      education_years_z + hours_worked_z + hours_sq_z +
+                      partner | field + onderwijssoort,
+                    data = hbo_wo_z, cluster = ~ field, subset = ~ stem)
+fs_dz_nstem <- feols(share_int_agg_z ~ Z_visa_field_agg_z + age_z + age_sq_z +
+                       education_years_z + hours_worked_z + hours_sq_z +
+                       partner | field + onderwijssoort,
+                     data = hbo_wo_z, cluster = ~ field, subset = ~ !stem)
+
+f_dz_full  <- round(wald(fs_dz_full,  'Z_visa_field_agg_z', print = FALSE)$stat, 1)
+f_dz_stem  <- round(wald(fs_dz_stem,  'Z_visa_field_agg_z', print = FALSE)$stat, 1)
+f_dz_nstem <- round(wald(fs_dz_nstem, 'Z_visa_field_agg_z', print = FALSE)$stat, 1)
+
+cat('\n\n\\textbf{Panel D: HBO + WO (Standardized)}\\n\n')
+
+etable(dz_ols_full, dz_iv_full, dz_ols_stem, dz_iv_stem, dz_ols_nstem, dz_iv_nstem,
+       se.below = TRUE,
+       dict = c(share_int_agg_z = 'Intl. Share (z)', Z_visa_field_agg_z = 'Visa Instr. (z)'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
+       extralines = list('F-stat (1st stage)' =
+                          c(f_dz_full, f_dz_full, f_dz_stem, f_dz_stem,
+                            f_dz_nstem, f_dz_nstem)))
+```
