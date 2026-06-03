@@ -335,7 +335,8 @@ cariben_share <- cariben_duo %>%
   mutate(cariben_share = ifelse(intl_total > 0, cariben / intl_total, 0)) %>%
   select(field, onderwijssoort, year, cariben_share)
 
-cariben_share_agg <- cariben_share %>%
+cariben_share_agg <- cariben_duo %>%
+  left_join(intl_total_duo, by = c("field", "onderwijssoort", "year")) %>%
   group_by(field, year) %>%
   summarise(
     cariben = sum(cariben, na.rm = TRUE),
