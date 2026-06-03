@@ -677,17 +677,18 @@ Z_visa_field_agg <- field_nat_bl_agg %>%
 # -- LISS field-of-study code -> CBS field group map -----------------------------
 # LISS uses numeric codes (011-027) for fields of study. We map each code to the
 # corresponding CBS field group (onderdeel) and a boolean STEM indicator.
-# Codes 017-019 (natuur, techniek, landbouw) are classified as STEM.
+# STEM fields: mathematics/IT (018), technology (019), agriculture (020).
 field_map <- tibble(
   code = sprintf("%03d", 11:27),          # Generate codes "011", "012", ... "027"
   field = c(NA, "education", "arts_languages", "arts_languages",
                 "behavior_society", "business_admin", "law",
                 "natural_sciences", "engineering", "agriculture",
-                "healthcare", "behavior_society",
-                "behavior_society", "engineering", "engineering",
-                "law", "services"),
-  stem = c(FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,              # Codes 011-017 are non-STEM
-           TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)  # 018-020 = STEM; rest non-STEM
+                "healthcare", "services",
+                "services", "services", "services",
+                "services", NA),
+  stem = c(FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,       # 011-017 non-STEM
+           TRUE, TRUE, TRUE, FALSE,                                # 018-020 STEM
+           FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)               # 021-027 non-STEM
 )
 
 # -- process_early(): parse LISS 2020-2021 (comma-separated, column-name-based) --
