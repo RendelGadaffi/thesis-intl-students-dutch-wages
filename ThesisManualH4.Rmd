@@ -1048,13 +1048,11 @@ cat('\n\\textbf{Panel A: All Education Levels}\
 
 etable(a_ols_full, a_iv_full, a_ols_stem, a_iv_stem, a_ols_nstem, a_iv_nstem,
        se.below = TRUE,
-       keep = c('share_int_agg'),
        dict = c(share_int_agg = 'Intl. Share'),
        digits = 3,
        digits.stats = 3,
        fitstat = c('n', 'r2'),
        headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
-       subtitles = c('OLS', 'IV', 'OLS', 'IV', 'OLS', 'IV'),
        title = 'Main Results - Full Sample',
        extralines = list('F-stat (1st stage)' =
                           c(f_a_full, '', f_a_stem, '', f_a_nstem, '')))
@@ -1096,12 +1094,10 @@ cat('\n\\textbf{Panel B: HBO (Higher Professional Education)}\
 
 etable(b_ols_full, b_iv_full, b_ols_stem, b_iv_stem, b_ols_nstem, b_iv_nstem,
        se.below = TRUE,
-       keep = c('share_int_agg'),
        dict = c(share_int_agg = 'Intl. Share'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
        headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
-       subtitles = c('OLS', 'IV', 'OLS', 'IV', 'OLS', 'IV'),
        title = 'Main Results - HBO',
        extralines = list('F-stat (1st stage)' =
                           c(f_b_full, '', f_b_stem, '', f_b_nstem, '')))
@@ -1143,12 +1139,10 @@ cat('\n\\textbf{Panel C: WO (Research University)}\
 
 etable(c_ols_full, c_iv_full, c_ols_stem, c_iv_stem, c_ols_nstem, c_iv_nstem,
        se.below = TRUE,
-       keep = c('share_int_agg'),
        dict = c(share_int_agg = 'Intl. Share'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
        headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
-       subtitles = c('OLS', 'IV', 'OLS', 'IV', 'OLS', 'IV'),
        title = 'Main Results - WO',
        extralines = list('F-stat (1st stage)' =
                           c(f_c_full, '', f_c_stem, '', f_c_nstem, '')))
