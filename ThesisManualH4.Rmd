@@ -738,47 +738,50 @@ parse_early_work <- function(df, yr) {
   age <- as.numeric(df[[6]])
 
   # -- Highest completed education ---------------------------------------------
+  # LISS asks for the highest education level completed with a diploma.
+  # We map each unique text response to years of schooling using an explicit
+  # lookup table (verified against all 28 unique values in 2020-2021 data).
   edu_col <- grep("highest level.*education.*completed.*diploma",
                   names(df), value = TRUE, ignore.case = TRUE)[1]
-  edu_raw <- as.character(df[[edu_col]])
+  edu_text <- as.character(df[[edu_col]])
 
-  # Map text responses to years of schooling (Mincer convention):
-  edu_yrs <- rep(NA_real_, nrow(df))
+  edu_lookup <- c(
+    "did not complete any education"                                 = "0",
+    "did not complete primary school"                                = "0",
+    "primary school"                                                 = "6",
+    "vmbo theoretical or combined program (preparatory intermediate vocational school)" = "10",
+    "vmbo vocational training program (preparatory intermediate vocational school)"    = "10",
+    "mulo, ulo, mavo (lower/intermediate secondary education; US: junior high school)" = "10",
+    "lower technical school, household school"                       = "10",
+    "lbo (lower professional education)"                             = "10",
+    "vglo (continued lower education)"                               = "10",
+    "lower and continued special education"                          = "10",
+    "havo (higher general secondary education; US: junior high school)" = "11",
+    "hbs (former pre-university education, US: senior high school)"  = "11",
+    "mms (intermediate girls' school)"                               = "11",
+    "vwo (pre-university education, US: senior high school)"         = "12",
+    "gymnasium, atheneum, lyceum (types of pre-university education programs)" = "12",
+    "mbo professional training program (intermediate professional education (bbl))" = "13",
+    "mbo professional training program (intermediate professional education (bol))" = "13",
+    "kmbo (short intermediate professional education), vhbo (preparatory higher professional education)" = "13",
+    "mbo-plus to access hbo, short hbo education (less than two years) (higher professional education)" = "14",
+    "hbo (higher professional education), institutes of higher education, new style" = "16",
+    "teacher training school"                                        = "16",
+    "academic education, bachelor"                                   = "15",
+    "academic education (including technical and economic colleges, former style) bachelor's degree (kandidaats)" = "15",
+    "conservatory and art academy"                                   = "15",
+    "academic education, master"                                     = "17",
+    "academic education (including technical and economic colleges, former style) master's degree (doctoraal)" = "17",
+    "doctor's degree (Ph.D, including doctoral research program to obtain Ph.D)" = "21",
+    "other"                                                          = NA_character_
+  )
 
-  # No diploma
-  edu_yrs[grepl("did not complete|^no$|^none$",         edu_raw, ignore.case = TRUE)] <- 0
-  # Primary (basisschool, ages 6-12)
-  edu_yrs[grepl("^primary school",                       edu_raw, ignore.case = TRUE)] <- 6
-  # VMBO / lower secondary (6+4)
-  edu_yrs[grepl("vmbo|mulo|lower technical|^lbo|vglo",  edu_raw, ignore.case = TRUE)] <- 10
-  # HAVO / upper secondary (6+5)
-  edu_yrs[grepl("^havo|^hbs|^mms",                      edu_raw, ignore.case = TRUE)] <- 11
-  # VWO / pre-university (6+6)
-  edu_yrs[grepl("^vwo|^gymnasium",                      edu_raw, ignore.case = TRUE)] <- 12
-  # MBO / intermediate vocational
-  edu_yrs[grepl("^mbo |^kmbo",                           edu_raw, ignore.case = TRUE)] <- 13
-  edu_yrs[grepl("^mbo-plus",                             edu_raw, ignore.case = TRUE)] <- 14
-  # HBO / professional bachelor
-  edu_yrs[grepl("^hbo",                                  edu_raw, ignore.case = TRUE)] <- 16
-  # WO bachelor
-  edu_yrs[grepl("academic.*bachelor",                    edu_raw, ignore.case = TRUE)] <- 15
-  # WO master
-  edu_yrs[grepl("academic.*master",                      edu_raw, ignore.case = TRUE)] <- 17
-  # WO (unspecified)
-  edu_yrs[grepl("^academic|^university",                 edu_raw, ignore.case = TRUE)] <- 15
-  # PhD
-  edu_yrs[grepl("doctor|phd",                            edu_raw, ignore.case = TRUE)] <- 21
-  # Additional LISS text responses
-  edu_yrs[grepl("teacher training",                      edu_raw, ignore.case = TRUE)] <- 16
-  edu_yrs[grepl("conservatory|art academy",              edu_raw, ignore.case = TRUE)] <- 15
-  edu_yrs[grepl("special education",                     edu_raw, ignore.case = TRUE)] <- 10
+  edu_yrs <- as.numeric(edu_lookup[edu_text])
 
   # -- Education level (HBO / WO) ----------------------------------------------
   onderwijssoort <- rep(NA_character_, nrow(df))
-  onderwijssoort[grepl("hbo", edu_raw, ignore.case = TRUE)] <- "Hoger beroepsonderwijs"
-  onderwijssoort[grepl("academic.*bachelor|academic.*master|^academic|
-                       ^university|doctor|phd",
-                       edu_raw, ignore.case = TRUE)] <- "Wetenschappelijk onderwijs"
+  onderwijssoort[edu_yrs == 16] <- "Hoger beroepsonderwijs"
+  onderwijssoort[edu_yrs %in% c(15, 17, 21)] <- "Wetenschappelijk onderwijs"
 
   # -- Hours worked per week ---------------------------------------------------
   hrs_col <- grep("actually work", names(df), value = TRUE, ignore.case = TRUE)[1]
