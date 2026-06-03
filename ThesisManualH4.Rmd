@@ -1054,7 +1054,7 @@ etable(a_ols_full, a_iv_full, a_ols_stem, a_iv_stem, a_ols_nstem, a_iv_nstem,
        fitstat = c('n', 'r2'),
        headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
        extralines = list('F-stat (1st stage)' =
-                          c(f_a_full, '', f_a_stem, '', f_a_nstem, '')))
+                          c(f_a_full, f_a_full, f_a_stem, f_a_stem, f_a_nstem, f_a_nstem)))
 
 # --- Panel B: HBO only -------------------------------------------------------
 
@@ -1099,7 +1099,7 @@ etable(b_ols_full, b_iv_full, b_ols_stem, b_iv_stem, b_ols_nstem, b_iv_nstem,
        fitstat = c('n', 'r2'),
        headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
        extralines = list('F-stat (1st stage)' =
-                          c(f_b_full, '', f_b_stem, '', f_b_nstem, '')))
+                          c(f_b_full, f_b_full, f_b_stem, f_b_stem, f_b_nstem, f_b_nstem)))
 
 # --- Panel C: WO only --------------------------------------------------------
 
@@ -1144,5 +1144,5 @@ etable(c_ols_full, c_iv_full, c_ols_stem, c_iv_stem, c_ols_nstem, c_iv_nstem,
        fitstat = c('n', 'r2'),
        headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
        extralines = list('F-stat (1st stage)' =
-                          c(f_c_full, '', f_c_stem, '', f_c_nstem, '')))
+                          c(f_c_full, f_c_full, f_c_stem, f_c_stem, f_c_nstem, f_c_nstem)))
 ```
