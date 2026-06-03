@@ -214,6 +214,60 @@ etable(d_ols_full, d_iv_full, d_ols_stem, d_iv_stem, d_ols_nstem, d_iv_nstem,
                           c(f_d_full, f_d_full, f_d_stem, f_d_stem, f_d_nstem, f_d_nstem)))
 ```
 
+
+# --- Panel E: Lagged IV (t-1) -------------------------------------------------
+# Uses Z_visa_field_agg from year (t-1) as instrument for share_int_agg in year t.
+# Tests whether the instrument's exclusion restriction holds (contemporaneous
+# labour-market shocks shouldn't drive visa issuance).
+
+lag1 <- est_data %>%
+  group_by(field, survey_year) %>%
+  summarise(Z_visa_field_agg = first(Z_visa_field_agg), .groups = 'drop') %>%
+  mutate(survey_year = survey_year + 1) %>%
+  rename(Z_visa_field_agg_lag1 = Z_visa_field_agg)
+
+est_data_lag <- est_data %>%
+  left_join(lag1, by = c('field', 'survey_year'))
+
+e_ols_full  <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+                      data = est_data_lag, cluster = ~ field)
+e_iv_full   <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | field |
+                       share_int_agg ~ Z_visa_field_agg_lag1,
+                      data = est_data_lag, cluster = ~ field)
+e_ols_stem  <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+                      data = est_data_lag, cluster = ~ field, subset = ~ stem)
+e_iv_stem   <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | field |
+                       share_int_agg ~ Z_visa_field_agg_lag1,
+                      data = est_data_lag, cluster = ~ field, subset = ~ stem)
+e_ols_nstem <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+                      data = est_data_lag, cluster = ~ field, subset = ~ !stem)
+e_iv_nstem  <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | field |
+                       share_int_agg ~ Z_visa_field_agg_lag1,
+                      data = est_data_lag, cluster = ~ field, subset = ~ !stem)
+
+fs_e_full <- feols(share_int_agg ~ Z_visa_field_agg_lag1 + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+                    data = est_data_lag, cluster = ~ field)
+fs_e_stem <- feols(share_int_agg ~ Z_visa_field_agg_lag1 + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+                    data = est_data_lag, cluster = ~ field, subset = ~ stem)
+fs_e_nstem <- feols(share_int_agg ~ Z_visa_field_agg_lag1 + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+                     data = est_data_lag, cluster = ~ field, subset = ~ !stem)
+
+f_e_full  <- round(wald(fs_e_full,  'Z_visa_field_agg_lag1', print = FALSE)$stat, 1)
+f_e_stem  <- round(wald(fs_e_stem,  'Z_visa_field_agg_lag1', print = FALSE)$stat, 1)
+f_e_nstem <- round(wald(fs_e_nstem, 'Z_visa_field_agg_lag1', print = FALSE)$stat, 1)
+
+cat('\n\n\\textbf{Panel E: Lagged IV (t-1)}\\n\\textit{Instrument: Z-visa from year t-1}\\n
+')
+
+etable(e_ols_full, e_iv_full, e_ols_stem, e_iv_stem, e_ols_nstem, e_iv_nstem,
+       se.below = TRUE,
+       dict = c(share_int_agg = 'Intl. Share'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
+       extralines = list('F-stat (1st stage)' =
+                          c(f_e_full, f_e_full, f_e_stem, f_e_stem, f_e_nstem, f_e_nstem)))
+
 ```{r regressions-z, results='asis'}
 # -- Standardized regressions ---------------------------------------------------
 # Same 4 panels as above but with z-score standardized continuous variables
@@ -459,4 +513,76 @@ etable(dz_ols_full, dz_iv_full, dz_ols_stem, dz_iv_stem, dz_ols_nstem, dz_iv_nst
        extralines = list('F-stat (1st stage)' =
                           c(f_dz_full, f_dz_full, f_dz_stem, f_dz_stem,
                             f_dz_nstem, f_dz_nstem)))
+```
+
+```{r regressions-z-lag}
+# -- Panel E-z: Lagged IV (t-1) standardized -------------------------------
+
+lag1_z <- est_data_z %>%
+  group_by(field, survey_year) %>%
+  summarise(Z_visa_field_agg_z = first(Z_visa_field_agg_z), .groups = 'drop') %>%
+  mutate(survey_year = survey_year + 1) %>%
+  rename(Z_visa_field_agg_lag1_z = Z_visa_field_agg_z)
+
+est_data_lag_z <- est_data_z %>%
+  left_join(lag1_z, by = c('field', 'survey_year'))
+
+ez_ols_full  <- feols(log_income_z ~ share_int_agg_z + age_z + age_sq_z +
+                        education_years_z + hours_worked_z + hours_sq_z +
+                        partner | field,
+                      data = est_data_lag_z, cluster = ~ field)
+ez_iv_full   <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
+                        hours_worked_z + hours_sq_z + partner | field |
+                        share_int_agg_z ~ Z_visa_field_agg_lag1_z,
+                      data = est_data_lag_z, cluster = ~ field)
+ez_ols_stem  <- feols(log_income_z ~ share_int_agg_z + age_z + age_sq_z +
+                        education_years_z + hours_worked_z + hours_sq_z +
+                        partner | field,
+                      data = est_data_lag_z, cluster = ~ field, subset = ~ stem)
+ez_iv_stem   <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
+                        hours_worked_z + hours_sq_z + partner | field |
+                        share_int_agg_z ~ Z_visa_field_agg_lag1_z,
+                      data = est_data_lag_z, cluster = ~ field, subset = ~ stem)
+ez_ols_nstem <- feols(log_income_z ~ share_int_agg_z + age_z + age_sq_z +
+                        education_years_z + hours_worked_z + hours_sq_z +
+                        partner | field,
+                      data = est_data_lag_z, cluster = ~ field, subset = ~ !stem)
+ez_iv_nstem  <- feols(log_income_z ~ age_z + age_sq_z + education_years_z +
+                        hours_worked_z + hours_sq_z + partner | field |
+                        share_int_agg_z ~ Z_visa_field_agg_lag1_z,
+                      data = est_data_lag_z, cluster = ~ field, subset = ~ !stem)
+
+fs_ez_full <- feols(share_int_agg_z ~ Z_visa_field_agg_lag1_z + age_z + age_sq_z +
+                      education_years_z + hours_worked_z + hours_sq_z +
+                      partner | field,
+                    data = est_data_lag_z, cluster = ~ field)
+fs_ez_stem <- feols(share_int_agg_z ~ Z_visa_field_agg_lag1_z + age_z + age_sq_z +
+                      education_years_z + hours_worked_z + hours_sq_z +
+                      partner | field,
+                    data = est_data_lag_z, cluster = ~ field, subset = ~ stem)
+fs_ez_nstem <- feols(share_int_agg_z ~ Z_visa_field_agg_lag1_z + age_z + age_sq_z +
+                       education_years_z + hours_worked_z + hours_sq_z +
+                       partner | field,
+                     data = est_data_lag_z, cluster = ~ field, subset = ~ !stem)
+
+f_ez_full  <- round(wald(fs_ez_full,  'Z_visa_field_agg_lag1_z', print = FALSE)$stat, 1)
+f_ez_stem  <- round(wald(fs_ez_stem,  'Z_visa_field_agg_lag1_z', print = FALSE)$stat, 1)
+f_ez_nstem <- round(wald(fs_ez_nstem, 'Z_visa_field_agg_lag1_z', print = FALSE)$stat, 1)
+
+cat('
+
+\\textbf{Panel E: Lagged IV (t-1) — Standardized}
+\\textit{Instrument: Z-visa from year t-1 (z-scored)}
+
+')
+
+etable(ez_ols_full, ez_iv_full, ez_ols_stem, ez_iv_stem, ez_ols_nstem, ez_iv_nstem,
+       se.below = TRUE,
+       dict = c(share_int_agg_z = 'Intl. Share (z)', Z_visa_field_agg_lag1_z = 'Visa Lag1 (z)'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
+       extralines = list('F-stat (1st stage)' =
+                          c(f_ez_full, f_ez_full, f_ez_stem, f_ez_stem,
+                            f_ez_nstem, f_ez_nstem)))
 ```
