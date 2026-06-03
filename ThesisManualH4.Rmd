@@ -604,8 +604,6 @@ intl_detailed_agg <- intl_origin_agg %>%
   bind_rows(bu_split_agg)
 
 # -- Map CBS Studierichting to CBS field groups ----------------------------------
-# For the instrument, aggregate CBS field "04" maps to both recht AND economie
-# (the Internationals file doesn't have 041/042 sub-fields).
 cbs_field_map_instr <- tibble(
   studierichting = c("01 Onderwijs",
                      "02 Vormgeving, kunst, talen en gesch... ",
