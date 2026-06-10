@@ -38,32 +38,32 @@ fe <- "field + survey_year"
 
 # --- Panel A: All onderwijssoort (pooled) ------------------------------------
 
-a_ols_full  <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+a_ols_full  <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field,
                       data = est_data, cluster = ~ field)
-a_iv_full   <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | field |
+a_iv_full   <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field |
                        share_int_agg ~ Z_visa_field_agg,
                       data = est_data, cluster = ~ field)
-a_ols_stem  <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+a_ols_stem  <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field,
                       data = est_data, cluster = ~ field,
                       subset = ~ stem)
-a_iv_stem   <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | field |
+a_iv_stem   <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field |
                        share_int_agg ~ Z_visa_field_agg,
                       data = est_data, cluster = ~ field,
                       subset = ~ stem)
-a_ols_nstem <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+a_ols_nstem <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field,
                       data = est_data, cluster = ~ field,
                       subset = ~ !stem)
-a_iv_nstem  <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | field |
+a_iv_nstem  <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field |
                        share_int_agg ~ Z_visa_field_agg,
                       data = est_data, cluster = ~ field,
                       subset = ~ !stem)
 
 # First-stage F-stats (Panel A)
-fs_a_full <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+fs_a_full <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field,
                     data = est_data, cluster = ~ field)
-fs_a_stem <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+fs_a_stem <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field,
                     data = est_data, cluster = ~ field, subset = ~ stem)
-fs_a_nstem <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+fs_a_nstem <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field,
                      data = est_data, cluster = ~ field, subset = ~ !stem)
 
 f_a_full  <- round(wald(fs_a_full,  'Z_visa_field_agg', print = FALSE)$stat, 1)
@@ -175,26 +175,26 @@ etable(c_ols_full, c_iv_full, c_ols_stem, c_iv_stem, c_ols_nstem, c_iv_nstem,
 
 hbo_wo <- est_data %>% filter(onderwijssoort %in% c("Hoger beroepsonderwijs", "Wetenschappelijk onderwijs"))
 
-d_ols_full  <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field + onderwijssoort,
+d_ols_full  <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field + onderwijssoort,
                       data = hbo_wo, cluster = ~ field)
-d_iv_full   <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | field + onderwijssoort |
+d_iv_full   <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field + onderwijssoort |
                        share_int_agg ~ Z_visa_field_agg,
                       data = hbo_wo, cluster = ~ field)
-d_ols_stem  <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field + onderwijssoort,
+d_ols_stem  <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field + onderwijssoort,
                       data = hbo_wo, cluster = ~ field, subset = ~ stem)
-d_iv_stem   <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | field + onderwijssoort |
+d_iv_stem   <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field + onderwijssoort |
                        share_int_agg ~ Z_visa_field_agg,
                       data = hbo_wo, cluster = ~ field, subset = ~ stem)
-d_ols_nstem <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field + onderwijssoort,
+d_ols_nstem <- feols(log_income ~ share_int_agg + age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field + onderwijssoort,
                       data = hbo_wo, cluster = ~ field, subset = ~ !stem)
-d_iv_nstem  <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | field + onderwijssoort |
+d_iv_nstem  <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field + onderwijssoort |
                        share_int_agg ~ Z_visa_field_agg,
                       data = hbo_wo, cluster = ~ field, subset = ~ !stem)
 
-fs_d_full <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field + onderwijssoort,
+fs_d_full <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field + onderwijssoort,
                     data = hbo_wo, cluster = ~ field)
-fs_d_stem <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field + onderwijssoort,
-                    data = hbo_wo, cluster = ~ field, subset = ~ stem)
+fs_d_stem <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field + onderwijssoort,
+                     data = hbo_wo, cluster = ~ field, subset = ~ stem)
 fs_d_nstem <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field + onderwijssoort,
                      data = hbo_wo, cluster = ~ field, subset = ~ !stem)
 
@@ -218,11 +218,11 @@ female <- est_data %>% filter(geslacht == 'female')
 male   <- est_data %>% filter(geslacht == 'male')
 
 # OLS with gender interaction
-f_ols_interact <- feols(log_income ~ share_int_agg * geslacht + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+f_ols_interact <- feols(log_income ~ share_int_agg * geslacht + age + age_sq + education_years + hours_worked + hours_sq + partner + dutch + sted | field,
                         data = est_data, cluster = ~ field)
 
 # IV split by gender
-f_iv_female <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | field |
+f_iv_female <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner + dutch + sted | field |
                       share_int_agg ~ Z_visa_field_agg,
                      data = female, cluster = ~ field)
 f_iv_male <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner | field |
@@ -230,7 +230,7 @@ f_iv_male <- feols(log_income ~ age + age_sq + education_years + hours_worked + 
                    data = male, cluster = ~ field)
 
 # First-stage F-stats (split by gender)
-fs_female <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
+fs_female <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner + dutch + sted | field,
                    data = female, cluster = ~ field)
 fs_male <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner | field,
                  data = male, cluster = ~ field)
