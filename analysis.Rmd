@@ -225,14 +225,14 @@ f_ols_interact <- feols(log_income ~ share_int_agg * geslacht + age + age_sq + e
 f_iv_female <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner + dutch + sted | field |
                       share_int_agg ~ Z_visa_field_agg,
                      data = female, cluster = ~ field)
-f_iv_male <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field |
+f_iv_male <- feols(log_income ~ age + age_sq + education_years + hours_worked + hours_sq + partner + dutch + sted | field |
                     share_int_agg ~ Z_visa_field_agg,
                    data = male, cluster = ~ field)
 
 # First-stage F-stats (split by gender)
 fs_female <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner + dutch + sted | field,
                    data = female, cluster = ~ field)
-fs_male <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted | field,
+fs_male <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years + hours_worked + hours_sq + partner + dutch + sted | field,
                  data = male, cluster = ~ field)
 
 f_female <- round(wald(fs_female, 'Z_visa_field_agg', print = FALSE)$stat, 1)
