@@ -33,7 +33,7 @@ cat(sprintf('Loaded %d observations\n', nrow(est_data)))
 # Fixed effect: field. SEs clustered at field level.
 
 # Control variables (inlined in each formula — feols doesn't expand formula objects)
-ctrl <- "age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht"
+ctrl <- "age + age_sq + education_years + hours_worked + hours_sq + partner + geslacht + dutch + sted + sector"
 fe <- "field + survey_year"
 
 # --- Panel A: All onderwijssoort (pooled) ------------------------------------

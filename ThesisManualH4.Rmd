@@ -1150,24 +1150,8 @@ est_data <- LISS_panel %>%
 # 8. Descriptive Statistics
 
 ```{r descriptives}
-# -- Summary statistics table --------------------------------------------------
-# Mean (SD) shown in each row.
-est_data %>%
-  summarise(N = sprintf("%d", n()),
-            `Log Income` = sprintf("%.3f (%.3f)", mean(log_income), sd(log_income)),
-            `Age` = sprintf("%.1f (%.1f)", mean(age), sd(age)),
-            `Education` = sprintf("%.1f (%.1f)", mean(education_years), sd(education_years)),
-            `Hours` = sprintf("%.1f (%.1f)", mean(hours_worked, na.rm = TRUE), sd(hours_worked, na.rm = TRUE)),
-            `Partner` = sprintf("%.2f (%.2f)", mean(partner, na.rm = TRUE), sd(partner, na.rm = TRUE)),
-            `Female` = sprintf("%.3f", mean(geslacht == "female", na.rm = TRUE)),
-            `Share Intl` = sprintf("%.3f (%.3f)", mean(share_int_agg), sd(share_int_agg)),
-            `Z_visa_field` = sprintf("%.4f (%.4f)", mean(Z_visa_field_agg, na.rm = TRUE), sd(Z_visa_field_agg, na.rm = TRUE)),
-            `STEM` = sprintf("%.2f (%.2f)", mean(stem), sd(stem))) %>%
-  # Reshape to vertical format (one row per statistic)
-  pivot_longer(everything(), names_to = "Statistic", values_to = "Value") %>%
-  # Render as a publication-quality LaTeX table
-  kable(caption = "Descriptive Statistics", booktabs = TRUE) %>%
-  kable_styling(latex_options = "hold_position")
+# -- Summary statistics ---------------------------------------------------
+summary(est_data)
 ```
 
 ```{r save-data}
