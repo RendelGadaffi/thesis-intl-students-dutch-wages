@@ -994,6 +994,40 @@ edu_code_to_text <- c(
   "28" = "other"
 )
 
+# -- Education text -> years lookup (same mapping used in original liss-parse-work) --
+# Maps free-text education values (from both early waves and converted late waves)
+# to years of schooling (standard Mincer convention).
+edu_lookup <- c(
+  "did not complete any education"                                               = "0",
+  "did not complete primary school"                                              = "0",
+  "primary school"                                                               = "6",
+  "vmbo theoretical or combined program (preparatory intermediate vocational school)" = "10",
+  "vmbo vocational training program (preparatory intermediate vocational school)"    = "10",
+  "mulo, ulo, mavo (lower/intermediate secondary education; US: junior high school)" = "10",
+  "lower technical school, household school"                                     = "10",
+  "lbo (lower professional education)"                                           = "10",
+  "vglo (continued lower education)"                                             = "10",
+  "lower and continued special education"                                        = "10",
+  "havo (higher general secondary education; US: junior high school)"            = "11",
+  "hbs (former pre-university education, US: senior high school)"               = "11",
+  "mms (intermediate girls' school)"                                             = "11",
+  "vwo (pre-university education, US: senior high school)"                       = "12",
+  "gymnasium, atheneum, lyceum (types of pre-university education programs)"     = "12",
+  "mbo professional training program (intermediate professional education (bbl))" = "13",
+  "mbo professional training program (intermediate professional education (bol))" = "13",
+  "kmbo (short intermediate professional education), vhbo (preparatory higher professional education)" = "13",
+  "mbo-plus to access hbo, short hbo education (less than two years) (higher professional education)" = "14",
+  "hbo (higher professional education), institutes of higher education, new style" = "16",
+  "teacher training school"                                                      = "16",
+  "academic education, bachelor"                                                 = "15",
+  "academic education (including technical and economic colleges, former style) bachelor's degree (kandidaats)" = "15",
+  "conservatory and art academy"                                                 = "15",
+  "academic education, master"                                                   = "17",
+  "academic education (including technical and economic colleges, former style) master's degree (doctoraal)" = "17",
+  "doctor's degree (Ph.D, including doctoral research program to obtain Ph.D)"   = "21",
+  "other"                                                                        = NA_character_
+)
+
 # -- Late-wave coded column -> early-wave descriptive column name -------------
 # Field-of-study column names (shared across all years, from codebook p.12-13)
 field_prefix <- "In what field did you complete your highest level of education? - "
@@ -1254,10 +1288,15 @@ alt_LISS_panel <- alt_LISS_panel %>%
     education_years = as.numeric(edu_lookup[edu_text]),
     education_years = ifelse(is.na(education_years),
                               median(education_years, na.rm = TRUE),
-                              education_years)
+                              education_years),
+    onderwijssoort = case_when(
+      education_years == 16 ~ "Hoger beroepsonderwijs",
+      education_years %in% c(15, 17, 21) ~ "Wetenschappelijk onderwijs",
+      TRUE ~ NA_character_
+    )
   ) %>%
   select(nomem_encr, survey_year, liss_code, field, stem, age, education_years,
-         hours_worked, hours_sq, tenure_years, log_income, gross_income,
+         onderwijssoort, hours_worked, hours_sq, tenure_years, log_income, gross_income,
          age_sq, partner)
 ```
 
