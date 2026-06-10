@@ -70,7 +70,57 @@ LISS2023ES <- read.csv("../../../Data/LISS Economic Situation, Income/Extracted/
 LISS2024ES <- read.csv("../../../Data/LISS Economic Situation, Income/Extracted/ci24q_EN_1.0p.csv", sep = ";", check.names = FALSE)
 ```
 
-## 1.2 IND Visa
+## 1.3 LISS Background Variables
+
+```{r avars-load}
+# -- LISS background variables (demographics, 2020-2024) ----------------------
+# The Background Variables module records time-invariant demographics (gender,
+# birth year, etc.). Available as .dta (2020-2021) and .csv (2022-2024).
+# We extract geslacht (1=male, 2=female) and merge by nomem_encr.
+
+base_bv <- "../../../Data/LISS Background Variables"
+
+avars_list <- list()
+
+for (yr in 2020:2024) {
+  yr_sfx <- paste0(yr, "05")
+  
+  if (yr <= 2021) {
+    # .dta format for 2020-2021
+    f <- file.path(base_bv, paste0("avars_", yr_sfx, "_EN_1.0p"),
+                   paste0("avars_", yr_sfx, "_EN_1.0p.dta"))
+    if (file.exists(f)) {
+      df <- haven::read_dta(f)
+    } else {
+      next
+    }
+  } else {
+    # .csv format for 2022-2024
+    ver <- if (yr == 2023) "1.1p" else "1.0p"
+    f <- file.path(base_bv, paste0("avars_", yr_sfx, "_EN_", ver),
+                   paste0("avars_", yr_sfx, "_EN_", ver, ".csv"))
+    if (file.exists(f)) {
+      df <- read.csv(f, sep = ";", check.names = FALSE)
+    } else {
+      next
+    }
+  }
+  
+  # Extract: person ID + gender. geslacht available in all years.
+  geslacht_raw <- df[["geslacht"]]
+  
+  avars_list[[as.character(yr)]] <- data.frame(
+    nomem_encr = as.character(df[["nomem_encr"]]),
+    geslacht = ifelse(geslacht_raw == 1, "male",
+               ifelse(geslacht_raw == 2, "female", NA_character_)),
+    survey_year = yr,
+    stringsAsFactors = FALSE
+  )
+}
+
+avars_all <- bind_rows(avars_list)
+rm(avars_list)
+```
 
 ```{r visa-load}
 # -- IND Schengen visa statistics (2020-2024) ----------------------------------
@@ -1297,7 +1347,12 @@ alt_LISS_panel <- alt_LISS_panel %>%
   ) %>%
   select(nomem_encr, survey_year, liss_code, field, stem, age, education_years,
          onderwijssoort, hours_worked, hours_sq, tenure_years, log_income, gross_income,
-         age_sq, partner)
+         age_sq, partner) %>%
+  # Merge background variables (gender)
+  left_join(avars_all %>% select(nomem_encr, geslacht, survey_year),
+            by = c("nomem_encr", "survey_year")) %>%
+  # Drop duplicate survey_year from avars (already have it)
+  distinct()
 ```
 
 ### 6.5.5 Comparison with Original Implementation
