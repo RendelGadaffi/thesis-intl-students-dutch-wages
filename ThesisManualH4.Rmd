@@ -864,7 +864,7 @@ work_cols_keep <- c(
   field_code_to_name,           # all 17 field columns
   "How many hours per week do (did) you actually work on average in your (last) job?",
   "In which year did you enter into employment with your current employer?",
-  "In what type of organization do (did) you work (in your last job)?",
+  "In what type of organization do (did) you work (in your last job)?"
 )
 
 # Income module columns (partner name is same for both early waves)
