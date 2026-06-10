@@ -106,13 +106,17 @@ for (yr in 2020:2024) {
     }
   }
   
-  # Extract: person ID + gender. geslacht available in all years.
+  # Extract: person ID + gender + migration background + urbanisation
   geslacht_raw <- df[["geslacht"]]
+  herk_raw <- df[["herkomstgroep"]]
+  sted_raw <- df[["sted"]]
   
   avars_list[[as.character(yr)]] <- data.frame(
     nomem_encr = as.character(df[["nomem_encr"]]),
     geslacht = ifelse(geslacht_raw == 1, "male",
                ifelse(geslacht_raw == 2, "female", NA_character_)),
+    dutch = ifelse(!is.na(herk_raw) & herk_raw == 0, "dutch", "non_dutch"),
+    sted = as.numeric(sted_raw),
     survey_year = yr,
     stringsAsFactors = FALSE
   )
@@ -859,7 +863,9 @@ work_cols_keep <- c(
   "What is the highest level of education that you have completed with diploma or certificate?",
   field_code_to_name,           # all 17 field columns
   "How many hours per week do (did) you actually work on average in your (last) job?",
-  "In which year did you enter into employment with your current employer?"
+  "In which year did you enter into employment with your current employer?",
+  "In what type of organization do (did) you work (in your last job)?",
+  "Please indicate which of the following statements apply to your situation. Try to be as thorough as you can. - I perform paid work (even if is it just for one or several hours per week or for a brief period)"
 )
 
 # Income module columns (partner name is same for both early waves)
@@ -925,6 +931,14 @@ for (yr in 2020:2024) {
     rename_map[[paste0(prefix, "134")]] <-
       "In which year did you enter into employment with your current employer?"
 
+    # Sector: cwXX121 -> descriptive
+    rename_map[[paste0(prefix, "121")]] <-
+      "In what type of organization do (did) you work (in your last job)?"
+
+    # Paid work indicator: cwXX088 -> descriptive
+    rename_map[[paste0(prefix, "088")]] <-
+      "Please indicate which of the following statements apply to your situation. Try to be as thorough as you can. - I perform paid work (even if is it just for one or several hours per week or for a brief period)"
+
     # Also rename nomem_encr to match early-wave name
     if ("nomem_encr" %in% nm) {
       rename_map[["nomem_encr"]] <- "Number of household member encrypted"
@@ -950,6 +964,27 @@ for (yr in 2020:2024) {
       }
     }
 
+
+    # Convert sector values: codes -> text labels (from codebook p.26)
+    sector_col <- "In what type of organization do (did) you work (in your last job)?"
+    if (sector_col %in% names(df)) {
+      sv <- df[[sector_col]]
+      df[[sector_col]] <- ifelse(is.na(sv), NA_character_,
+        ifelse(sv == 1, "public, semi-public sector",
+        ifelse(sv == 2, "private company",
+        ifelse(sv == 3, "self-employed",
+        ifelse(sv == 4, "not applicable", as.character(sv))))))
+    }
+
+    # Convert paid work values: 1 -> "Yes", 0 -> "No"
+    pw_col <- "Please indicate which of the following statements apply to your situation. Try to be as thorough as you can. - I perform paid work (even if is it just for one or several hours per week or for a brief period)"
+    if (pw_col %in% names(df)) {
+      vals <- df[[pw_col]]
+      new_vals <- rep(NA_character_, length(vals))
+      new_vals[!is.na(vals) & vals == 1] <- "Yes"
+      new_vals[!is.na(vals) & vals == 0] <- "No"
+      df[[pw_col]] <- new_vals
+    }
     # Convert education code 1-28 -> text
     edu_name <- "What is the highest level of education that you have completed with diploma or certificate?"
     if (edu_name %in% names(df)) {
@@ -1093,13 +1128,15 @@ LISS_panel <- LISS_panel %>%
       education_years == 16 ~ "Hoger beroepsonderwijs",
       education_years %in% c(15, 17, 21) ~ "Wetenschappelijk onderwijs",
       TRUE ~ NA_character_
-    )
+    ),
+    sector = as.character(.data[["In what type of organization do (did) you work (in your last job)?"]]),
+    has_paid_work = as.character(.data[["Please indicate which of the following statements apply to your situation. Try to be as thorough as you can. - I perform paid work (even if is it just for one or several hours per week or for a brief period)"]])
   ) %>%
   select(nomem_encr, survey_year, liss_code, field, stem, age, education_years,
          onderwijssoort, hours_worked, hours_sq, tenure_years, log_income, gross_income,
-         age_sq, partner) %>%
+         age_sq, partner, sector, has_paid_work) %>%
   # Merge background variables (gender)
-  left_join(avars_all %>% select(nomem_encr, geslacht, survey_year),
+  left_join(avars_all %>% select(nomem_encr, geslacht, dutch, sted, survey_year),
             by = c("nomem_encr", "survey_year")) %>%
   # Drop duplicate survey_year from avars (already have it)
   distinct()
