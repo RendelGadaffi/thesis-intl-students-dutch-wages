@@ -1381,6 +1381,20 @@ est_data <- est_data %>%
          !is.na(education_years), !is.na(hours_worked), !is.na(partner))
 ```
 
+```{r merge-all-alt}
+# -- Build alternative estimation dataset (from codebook-driven LISS parse) ----
+# Same merge logic as merge-all, but sourced from alt_LISS_panel instead.
+alt_est_data <- alt_LISS_panel %>%
+  left_join(field_shares, by = c("field", "onderwijssoort", "survey_year" = "year")) %>%
+  left_join(field_shares_agg %>% rename(share_int_agg = share_int),
+            by = c("field", "survey_year" = "year")) %>%
+  left_join(Z_visa_field_year, by = c("field", "onderwijssoort", "survey_year" = "year")) %>%
+  left_join(Z_visa_field_agg %>% rename(Z_visa_field_agg = Z_visa_field),
+            by = c("field", "survey_year" = "year")) %>%
+  filter(!is.na(share_int_agg), !is.na(Z_visa_field_agg), !is.na(log_income),
+         !is.na(education_years), !is.na(hours_worked), !is.na(partner))
+```
+
 # 8. Descriptive Statistics
 
 ```{r descriptives}
