@@ -757,259 +757,9 @@ field_map <- tribble(
 )
 ```
 
-## 6.2 Work and Schooling Module
+## 6.2 Field Codebook Lookup
 
-```{r liss-parse-work}
-# Survey year identifier
-survey_years <- c(2020, 2021, 2022, 2023, 2024)
-
-# -- Extract and harmonize fields across all waves -----------------------------
-# Each LISS wave records the same information (field of study, age, education,
-# hours worked, tenure), but column names change between early (2020-2021) and
-# late (2022-2024) waves. We process each year independently, rename to a
-# consistent schema, then bind the results into a single panel.
-
-work_list <- list()
-
-for (yr in survey_years) {
-
-  if (yr <= 2021) {
-    # -- Early waves (2020-2021): descriptive column names --------------------
-    df <- get(paste0("LISS", yr, "WS"))
-    names(df)[1] <- "nomem_encr"
-
-    # Field of study: columns 12-28 map to codes 011-027
-    # Data stores "Yes"/"No" strings (not numeric codes) — match "Yes" directly
-    field_codes <- sprintf("%03d", 11:27)   
-    mat <- as.data.frame(lapply(df[, 12:28], function(x) tolower(trimws(as.character(x))) == "yes"))
-    liss_code <- apply(mat, 1, function(r) {
-      idx <- which(r)
-      if (length(idx) == 0) NA_character_ else field_codes[idx[1]]
-    })
-
-    # Age: column 6
-    age <- as.numeric(df[[6]])
-
-    # Education
-    edu_col <- grep("highest level.*education.*completed.*diploma",
-                    names(df), value = TRUE, ignore.case = TRUE)[1]
-    edu_text <- as.character(df[[edu_col]])
-
-    # Hours worked
-    hrs_col <- grep("actually work", names(df), value = TRUE, ignore.case = TRUE)[1]
-    hours_worked <- if (!is.na(hrs_col)) as.numeric(df[[hrs_col]]) else NA_real_
-
-    # Tenure
-    ten_col <- grep("year.*(current employer|enter into employment|start.*employment)",
-                    names(df), value = TRUE, ignore.case = TRUE)[1]
-    start_year <- if (!is.na(ten_col)) as.numeric(df[[ten_col]]) else NA_real_
-    tenure_years <- ifelse(!is.na(start_year) & start_year > 1900 & start_year < yr,
-                           yr - start_year, NA_real_)
-
-  } else {
-    # -- Late waves (2022-2024): prefixed column codes -----------------------
-    df <- get(paste0("LISS", yr, "WS"))
-    nm <- names(df)
-
-    # Detect wave letter from the age column (ends in "003")
-    age_idx <- grep("003$", nm)[1]
-    wave_letter <- substr(nm[age_idx], 5, 5)
-    prefix <- paste0("cw", substr(yr, 3, 4), wave_letter)
-
-    # Field of study: columns cwXX011 through cwXX027
-    fcols <- nm[grep(paste0("^", prefix, "0[12][0-9]$"), nm)]
-    fcodes <- sub(".*([0-9]{3})$", "\\1", fcols)
-
-    nr <- nrow(df)
-    liss_code <- rep(NA_character_, nr)
-    for (i in seq_len(nr)) {
-      vals <- as.integer(df[i, fcols])
-      idx <- which(vals %in% c(1, 2))
-      if (length(idx) > 0) liss_code[i] <- fcodes[idx[1]]
-    }
-
-    # Age
-    age <- as.numeric(df[[paste0(prefix, "003")]])
-
-    # Education: standardized code cwXX525
-    edu_col <- paste0(prefix, "525")
-    if (edu_col %in% nm) {
-      edu_code <- as.numeric(df[[edu_col]])
-      # Map code 1-13 to years of schooling (Leuven et al. 2013 convention)
-      edu_yrs_vec <- c(0, 6, 10, 11, 12, 13, 16, 15, 17, 21, 21, 21, 21)
-      education_years <- edu_yrs_vec[edu_code]
-    } else {
-      education_years <- rep(NA_real_, nr)
-    }
-
-    # Hours worked: cwXX126
-    hrs_col <- paste0(prefix, "126")
-    hours_worked <- if (hrs_col %in% nm) as.numeric(df[[hrs_col]]) else rep(NA_real_, nr)
-
-    # Tenure: cwXX149
-    ten_col <- paste0(prefix, "149")
-    start_year <- if (ten_col %in% nm) as.numeric(df[[ten_col]]) else rep(NA_real_, nr)
-    tenure_years <- ifelse(!is.na(start_year) & start_year > 1900 & start_year < yr,
-                           yr - start_year, NA_real_)
-
-    # Keep education_text as NA for late waves (standardized codes used instead)
-    edu_text <- rep(NA_character_, nr)
-  }
-
-  # -- Education years lookup (early waves only) --------------------------------
-  if (yr <= 2021) {
-    edu_lookup <- c(
-      "did not complete any education"                                               = "0",
-      "did not complete primary school"                                              = "0",
-      "primary school"                                                               = "6",
-      "vmbo theoretical or combined program (preparatory intermediate vocational school)" = "10",
-      "vmbo vocational training program (preparatory intermediate vocational school)"    = "10",
-      "mulo, ulo, mavo (lower/intermediate secondary education; US: junior high school)" = "10",
-      "lower technical school, household school"                                     = "10",
-      "lbo (lower professional education)"                                           = "10",
-      "vglo (continued lower education)"                                             = "10",
-      "lower and continued special education"                                        = "10",
-      "havo (higher general secondary education; US: junior high school)"            = "11",
-      "hbs (former pre-university education, US: senior high school)"               = "11",
-      "mms (intermediate girls' school)"                                             = "11",
-      "vwo (pre-university education, US: senior high school)"                       = "12",
-      "gymnasium, atheneum, lyceum (types of pre-university education programs)"     = "12",
-      "mbo professional training program (intermediate professional education (bbl))" = "13",
-      "mbo professional training program (intermediate professional education (bol))" = "13",
-      "kmbo (short intermediate professional education), vhbo (preparatory higher professional education)" = "13",
-      "mbo-plus to access hbo, short hbo education (less than two years) (higher professional education)" = "14",
-      "hbo (higher professional education), institutes of higher education, new style" = "16",
-      "teacher training school"                                                      = "16",
-      "academic education, bachelor"                                                 = "15",
-      "academic education (including technical and economic colleges, former style) bachelor's degree (kandidaats)" = "15",
-      "conservatory and art academy"                                                 = "15",
-      "academic education, master"                                                   = "17",
-      "academic education (including technical and economic colleges, former style) master's degree (doctoraal)" = "17",
-      "doctor's degree (Ph.D, including doctoral research program to obtain Ph.D)"   = "21",
-      "other"                                                                        = NA_character_
-    )
-    education_years <- as.numeric(edu_lookup[edu_text])
-  }
-
-  # -- Education level (HBO vs WO) ----------------------------------------------
-  onderwijssoort <- rep(NA_character_, length(education_years))
-  onderwijssoort[education_years == 16] <- "Hoger beroepsonderwijs"
-  onderwijssoort[education_years %in% c(15, 17, 21)] <- "Wetenschappelijk onderwijs"
-
-  work_list[[as.character(yr)]] <- data.frame(
-    nomem_encr     = as.character(df[[1]]),
-    survey_year    = yr,
-    liss_code      = liss_code,
-    age            = age,
-    education_years = education_years,
-    onderwijssoort = onderwijssoort,
-    hours_worked   = hours_worked,
-    tenure_years   = tenure_years,
-    stringsAsFactors = FALSE
-  )
-}
-
-work_all <- bind_rows(work_list)
-```
-
-## 6.3 Income Module
-
-```{r liss-parse-income}
-# -- Parse gross monthly income and partner status -----------------------------
-# Early waves use descriptive column names; late waves use prefixed codes.
-parse_income <- function(df, yr) {
-
-  if (yr <= 2021) {
-    # -- Early wave ------------------------------------------------------------
-    names(df)[1] <- "nomem_encr"
-    gc <- grep("gross wages in total", names(df), value = TRUE, ignore.case = TRUE)[1]
-    partner_col <- grep("household head lives together with a partner",
-                        names(df), value = TRUE, ignore.case = TRUE)[1]
-
-    data.frame(nomem_encr = as.character(df$nomem_encr),
-               survey_year = yr,
-               gross_income = if (!is.na(gc)) as.numeric(df[[gc]]) else NA_real_,
-               partner = if (!is.na(partner_col)) tolower(trimws(as.character(df[[partner_col]]))) == "yes" else NA,
-               stringsAsFactors = FALSE)
-
-  } else {
-    # -- Late wave (prefixed columns) ------------------------------------------
-    nm <- names(df)
-    wave_letter <- substr(nm[grep("372$", nm)[1]], 5, 5)
-    prefix <- paste0("ci", substr(as.character(yr), 3, 4), wave_letter)
-    inc_col <- paste0(prefix, "372")
-    partner_col <- paste0(prefix, "003")
-
-    data.frame(nomem_encr = as.character(df[[1]]),
-               survey_year = yr,
-               gross_income = if (inc_col %in% nm) as.numeric(df[[inc_col]]) else NA_real_,
-               partner = if (partner_col %in% nm) as.numeric(df[[partner_col]]) == 1 else NA,
-               stringsAsFactors = FALSE)
-  }
-}
-
-income_all <- bind_rows(
-  parse_income(LISS2020ES, 2020),
-  parse_income(LISS2021ES, 2021),
-  parse_income(LISS2022ES, 2022),
-  parse_income(LISS2023ES, 2023),
-  parse_income(LISS2024ES, 2024)
-)
-```
-
-## 6.4 Merge Work and Income
-
-```{r liss-merge}
-# -- Combine work + income data into a single panel ----------------------------
-LISS_panel <- work_all %>%
-  inner_join(income_all, by = c("nomem_encr", "survey_year")) %>%
-  left_join(field_map, by = c("liss_code" = "code")) %>%
-  filter(!is.na(field),
-         !is.na(gross_income),
-         gross_income > 0) %>%
-  mutate(
-    log_income    = log(gross_income),
-    age_sq        = age^2,
-    hours_sq      = hours_worked^2,
-    partner       = as.logical(partner),
-    education_years = ifelse(is.na(education_years),
-                             median(education_years, na.rm = TRUE),
-                             education_years)
-  )
-```
-
-```{r liss-merge}
-# -- Merge work data + income data + field map into a single panel ------------
-LISS_panel <- work_all %>%
-  # Inner join: keep only respondents present in BOTH work and income modules
-  inner_join(income_all, by = c("nomem_encr", "survey_year")) %>%
-  # Map LISS numeric field code -> CBS field group + STEM indicator
-  left_join(field_map, by = c("liss_code" = "code")) %>%
-  # Drop rows missing essential variables (can't estimate without these)
-  filter(!is.na(field), !is.na(gross_income), gross_income > 0) %>%
-  mutate(
-    log_income = log(gross_income),           # Log transform for wage equation (Mincer)
-    age_sq = age^2,                                     # Quadratic age term (non-linear experience effects)
-    hours_sq = hours_worked^2,                          # Quadratic hours term (non-linear labour supply)
-    partner = as.logical(partner),                      # Convert partner indicator to logical TRUE/FALSE
-    # Impute missing education years with the sample median (attenuates toward zero -> conservative)
-    education_years = ifelse(is.na(education_years), median(education_years, na.rm = TRUE),
-                             education_years)
-  )
-```
-
-## 6.5 Alternative LISS Parsing (Codebook-Driven)
-#
-# This section reimplements the LISS parsing using exact codebook column names
-# instead of grep-based column detection. The approach is:
-#   1. Convert late-wave (2022-2024) coded values to match early-wave text
-#   2. Rename late-wave coded columns to early-wave descriptive names
-#   3. Select the same columns across all years, then bind_rows
-#   4. Compare results with the original implementation
-
-### 6.5.1 Codebook Lookup Tables
-
-```{r alt-liss-lookups}
+```{r field-lookups}
 # -- Education code 1-28 -> text (from cw22o codebook p.9-10) -----------------
 # The late-wave LISS stores education as codes 1-28, while early waves store
 # the equivalent free-text strings. Map codes to text so all years align.
@@ -1119,13 +869,13 @@ income_cols_keep <- c("Number of household member encrypted",
                       "gross_income")
 ```
 
-### 6.5.2 Standardise Work Module
+## 6.3 Standardise Work Module
 
-```{r alt-parse-work}
+```{r parse-work}
 # -- Convert late-wave coded values to match early-wave text, rename columns --
 # Then bind_rows all five years into a single work panel.
 
-alt_work_list <- list()
+work_list <- list()
 
 for (yr in 2020:2024) {
 
@@ -1217,18 +967,18 @@ for (yr in 2020:2024) {
     out[[1]] <- as.character(out[[1]])
   }
 
-  alt_work_list[[as.character(yr)]] <- out
+  work_list[[as.character(yr)]] <- out
 }
 
-alt_work_all <- bind_rows(alt_work_list)
+work_all <- bind_rows(work_list)
 ```
 
-### 6.5.3 Standardise Income Module
+## 6.4 Standardise Income Module
 
-```{r alt-parse-income}
+```{r parse-income}
 # -- Same approach for income: rename late-wave coded columns, convert values --
 
-alt_income_list <- list()
+income_list <- list()
 
 for (yr in 2020:2024) {
 
@@ -1286,18 +1036,18 @@ for (yr in 2020:2024) {
     )
   }
 
-  alt_income_list[[as.character(yr)]] <- out
+  income_list[[as.character(yr)]] <- out
 }
 
-alt_income_all <- bind_rows(alt_income_list)
+income_all <- bind_rows(income_list)
 ```
 
-### 6.5.4 Merge and Map Fields
+## 6.5 Merge Work, Income, and Map Fields
 
-```{r alt-merge}
+```{r merge-panel}
 # -- Merge work + income, map LISS codes to field groups, log income ----------
-alt_LISS_panel <- alt_work_all %>%
-  left_join(alt_income_all, by = c("Number of household member encrypted" = "nomem_encr",
+LISS_panel <- work_all %>%
+  left_join(income_all, by = c("Number of household member encrypted" = "nomem_encr",
                                     "survey_year" = "survey_year")) %>%
   rename(nomem_encr = "Number of household member encrypted")
 
@@ -1305,22 +1055,22 @@ alt_LISS_panel <- alt_work_all %>%
 # (same logic as the original, applied to the renamed columns)
 field_codes <- sprintf("%03d", 11:27)
 field_mat <- as.data.frame(lapply(field_code_to_name, function(nm) {
-  if (nm %in% names(alt_LISS_panel)) {
-    tolower(trimws(as.character(alt_LISS_panel[[nm]]))) == "yes"
+  if (nm %in% names(LISS_panel)) {
+    tolower(trimws(as.character(LISS_panel[[nm]]))) == "yes"
   } else {
-    rep(FALSE, nrow(alt_LISS_panel))
+    rep(FALSE, nrow(LISS_panel))
   }
 }))
 names(field_mat) <- field_codes
 
-alt_LISS_panel$liss_code <- apply(field_mat, 1, function(r) {
+LISS_panel$liss_code <- apply(field_mat, 1, function(r) {
   idx <- which(r)
   if (length(idx) == 0) NA_character_ else field_codes[idx[1]]
 })
 
 # Map LISS code -> field group + STEM
 # (reusing the same field_map from the original section 6.1)
-alt_LISS_panel <- alt_LISS_panel %>%
+LISS_panel <- LISS_panel %>%
   left_join(field_map, by = c("liss_code" = "code")) %>%
   filter(!is.na(field), !is.na(gross_income), gross_income > 0) %>%
   mutate(
@@ -1355,130 +1105,13 @@ alt_LISS_panel <- alt_LISS_panel %>%
   distinct()
 ```
 
-### 6.5.5 Comparison with Original Implementation
 
-```{r alt-compare}
-# -- Compare row counts and key distributions --------------------------------
-cat("============ Comparison: Original vs Codebook-Driven ============\
-")
-cat(sprintf("Original LISS_panel: %d rows\
-", nrow(LISS_panel)))
-cat(sprintf("Alternative LISS_panel: %d rows\
-", nrow(alt_LISS_panel)))
 
-# Compare survey year distributions
-cat("\
---- Survey year distribution (original) ---\
-")
-print(table(LISS_panel$survey_year))
-cat("\
---- Survey year distribution (alternative) ---\
-")
-print(table(alt_LISS_panel$survey_year))
-
-# Compare field distributions
-cat("\
---- Field distribution (original) ---\
-")
-print(table(LISS_panel$field, useNA = "ifany"))
-cat("\
---- Field distribution (alternative) ---\
-")
-print(table(alt_LISS_panel$field, useNA = "ifany"))
-
-# Compare education years
-cat(sprintf("\
-Education years mean (orig): %.2f\
-",
-            mean(LISS_panel$education_years, na.rm = TRUE)))
-cat(sprintf("Education years mean (alt):  %.2f\
-",
-            mean(alt_LISS_panel$education_years, na.rm = TRUE)))
-
-# Compare log income
-cat(sprintf("\
-Log income mean (orig): %.3f\
-",
-            mean(LISS_panel$log_income, na.rm = TRUE)))
-cat(sprintf("Log income mean (alt):  %.3f\
-",
-            mean(alt_LISS_panel$log_income, na.rm = TRUE)))
-
-# Identify rows unique to each
-orig_ids <- paste(LISS_panel$nomem_encr, LISS_panel$survey_year)
-alt_ids  <- paste(alt_LISS_panel$nomem_encr, alt_LISS_panel$survey_year)
-
-only_orig <- setdiff(orig_ids, alt_ids)
-only_alt  <- setdiff(alt_ids, orig_ids)
-common    <- intersect(orig_ids, alt_ids)
-
-cat(sprintf("\
-Rows only in original: %d\
-", length(only_orig)))
-cat(sprintf("Rows only in alternative: %d\
-", length(only_alt)))
-cat(sprintf("Rows in both: %d\
-", length(common)))
-
-if (length(only_orig) > 0) {
-  cat("\
-Sample of rows only in ORIGINAL:\
-")
-  print(head(only_orig))
-}
-if (length(only_alt) > 0) {
-  cat("\
-Sample of rows only in ALTERNATIVE:\
-")
-  print(head(only_alt))
-}
-
-# Summary verdict
-if (identical(orig_ids, alt_ids)) {
-  cat("\
-*** VERDICT: IDENTICAL (same person-years in both) ***\
-")
-} else if (length(common) == min(length(orig_ids), length(alt_ids))) {
-  cat("\
-*** VERDICT: SUBSET (one is subset of the other) ***\
-")
-} else {
-  cat("\
-*** VERDICT: DIFFERENT (partial overlap) ***\
-")
-}
-```
 
 # 7. Merge All Data
-
 ```{r merge-all}
-# -- Build the final estimation dataset ---------------------------------------
+# -- Build the final estimation dataset (codebook-driven LISS pipeline) --------
 est_data <- LISS_panel %>%
-  # Merge field-level international share (endogenous variable)
-  # Merge level-specific share_int (matches by field x onderwijssoort x year)
-  # Merge level-specific share_int (matches by field x onderwijssoort x year)
-  left_join(field_shares, by = c("field", "onderwijssoort", "survey_year" = "year")) %>%
-  # Merge aggregate share_int for the joint specification
-  left_join(field_shares_agg %>% rename(share_int_agg = share_int),
-            by = c("field", "survey_year" = "year")) %>%
-  # Merge level-specific instrument
-  left_join(Z_visa_field_year, by = c("field", "onderwijssoort", "survey_year" = "year")) %>%
-  # Merge aggregate instrument for the joint specification
-  left_join(Z_visa_field_agg %>% rename(Z_visa_field_agg = Z_visa_field),
-            by = c("field", "survey_year" = "year"))
-
-est_data <- est_data %>%
-  # Drop any row missing a key variable (complete-case analysis)
-  # Filter on aggregate vars for the main joint specification;
-  # level-specific (share_int, Z_visa_field) may have NAs for non-matched onderwijssoort
-  filter(!is.na(share_int_agg), !is.na(Z_visa_field_agg), !is.na(log_income),
-         !is.na(education_years), !is.na(hours_worked), !is.na(partner))
-```
-
-```{r merge-all-alt}
-# -- Build alternative estimation dataset (from codebook-driven LISS parse) ----
-# Same merge logic as merge-all, but sourced from alt_LISS_panel instead.
-alt_est_data <- alt_LISS_panel %>%
   left_join(field_shares, by = c("field", "onderwijssoort", "survey_year" = "year")) %>%
   left_join(field_shares_agg %>% rename(share_int_agg = share_int),
             by = c("field", "survey_year" = "year")) %>%
@@ -1488,6 +1121,8 @@ alt_est_data <- alt_LISS_panel %>%
   filter(!is.na(share_int_agg), !is.na(Z_visa_field_agg), !is.na(log_income),
          !is.na(education_years), !is.na(hours_worked), !is.na(partner))
 ```
+
+
 
 # 8. Descriptive Statistics
 
