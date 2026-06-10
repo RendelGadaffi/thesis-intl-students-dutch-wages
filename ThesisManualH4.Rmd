@@ -1136,6 +1136,7 @@ est_data %>%
             `Education` = sprintf("%.1f (%.1f)", mean(education_years), sd(education_years)),
             `Hours` = sprintf("%.1f (%.1f)", mean(hours_worked, na.rm = TRUE), sd(hours_worked, na.rm = TRUE)),
             `Partner` = sprintf("%.2f (%.2f)", mean(partner, na.rm = TRUE), sd(partner, na.rm = TRUE)),
+            `Female` = sprintf("%.3f", mean(geslacht == "female", na.rm = TRUE)),
             `Share Intl` = sprintf("%.3f (%.3f)", mean(share_int_agg), sd(share_int_agg)),
             `Z_visa_field` = sprintf("%.4f (%.4f)", mean(Z_visa_field_agg, na.rm = TRUE), sd(Z_visa_field_agg, na.rm = TRUE)),
             `STEM` = sprintf("%.2f (%.2f)", mean(stem), sd(stem))) %>%
