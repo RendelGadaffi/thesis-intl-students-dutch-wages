@@ -33,6 +33,14 @@ if (!file.exists('./est_data.csv')) {
        "then knit this document. Expected at: ", normalizePath('./est_data.csv', mustWork = FALSE))
 }
 est_data <- read.csv('./est_data.csv', stringsAsFactors = FALSE)
+
+# Failsafe helpers for inline R code — return placeholder if est_data unavailable
+ed_nrow   <- function() { if (exists("est_data")) nrow(est_data) else "[N]" }
+ed_mean   <- function(col) { if (exists("est_data")) round(mean(est_data[[col]], na.rm = TRUE), 2) else "[mean]" }
+ed_min    <- function(col) { if (exists("est_data")) round(min(est_data[[col]], na.rm = TRUE) * 100, 1) else "[min]" }
+ed_max    <- function(col) { if (exists("est_data")) round(max(est_data[[col]], na.rm = TRUE) * 100, 1) else "[max]" }
+ed_round  <- function(col, d = 0) { if (exists("est_data")) round(est_data[[col]], d) else "[val]" }
+ed_prop   <- function(col, val) { if (exists("est_data")) round(mean(est_data[[col]] == val, na.rm = TRUE) * 100, 0) else "[%]" }
 ```
 
 # Introduction
@@ -85,7 +93,7 @@ The analysis combines four data sources: the LISS panel, Statistics Netherlands 
 
 **LISS Panel.** The LISS (Longitudinal Internet Studies for the Social Sciences) panel is a nationally representative household survey administered by CentERdata at Tilburg University [@liss2024]. The panel follows approximately 5,000 households containing roughly 7,500 individuals annually. I use two modules: "Work and Schooling" (field of study, education level, working hours) and "Economic Situation: Income" (gross yearly wages, partner status), covering five waves from 2020 to 2024. The LISS background variables module provides time-invariant demographics including gender (geslacht), migration background (herkomstgroep), and urbanisation degree.
 
-The sample is restricted to respondents who have completed HBO (higher professional education) or WO (research university) education, are employed and report positive wages and working hours, and for whom field-of-study information is available. This yields an estimation sample of approximately `r nrow(est_data)` observations across 11 field-of-study groups.
+The sample is restricted to respondents who have completed HBO (higher professional education) or WO (research university) education, are employed and report positive wages and working hours, and for whom field-of-study information is available. This yields an estimation sample of approximately `r ed_nrow()` observations across 11 field-of-study groups.
 
 **CBS Student Enrollment Data.** Statistics Netherlands (Centraal Bureau voor de Statistiek) provides administrative data on student enrollment by field of study, nationality background, education level (HBO/WO), and academic year. Two files are used. The "subgroups" file provides granular three-digit CBS field codes for computing total and international-background graduate counts per field-year. The "Internationals" file provides enrollment counts by country of origin (herkomstland) and field, used to construct the nationality composition of international students for the shift-share instrument. I use the earliest available year (2011) as the baseline period for nationality shares, following the standard practice of using pre-determined weights in shift-share designs [@borusyak2022].
 
@@ -210,7 +218,7 @@ kable(summary_bin, booktabs = TRUE,
   kable_styling(latex_options = 'hold_position')
 ```
 
-Table 1 presents summary statistics for the estimation sample. The average log yearly wage is approximately `r round(mean(est_data$log_income, na.rm = TRUE), 2)` (corresponding to roughly €`r round(exp(mean(est_data$log_income, na.rm = TRUE)) / 1000, 0)`,000 gross annually). The mean international graduate share across field-years is `r round(mean(est_data$share_int_agg, na.rm = TRUE) * 100, 1)`\%, with substantial variation across fields (ranging from `r round(min(est_data$share_int_agg, na.rm = TRUE) * 100, 1)`\% to `r round(max(est_data$share_int_agg, na.rm = TRUE) * 100, 1)`\%). The sample is approximately `r round(mean(est_data$geslacht == 'female', na.rm = TRUE) * 100, 0)`\% female and `r round(mean(est_data$stem, na.rm = TRUE) * 100, 0)`\% STEM graduates.
+Table 1 presents summary statistics for the estimation sample. The average log yearly wage is approximately `r ed_mean("log_income")` (corresponding to roughly €`r round(exp(ed_mean("log_income")) / 1000, 0)`,000 gross annually). The mean international graduate share across field-years is `r ed_mean("share_int_agg") * 100`\%, with substantial variation across fields (ranging from `r ed_min("share_int_agg")`\% to `r ed_max("share_int_agg")`\%). The sample is approximately `r ed_prop("geslacht", "female")`\% female and `r ed_prop("stem", TRUE)`\% STEM graduates.
 
 ## Main Results
 
