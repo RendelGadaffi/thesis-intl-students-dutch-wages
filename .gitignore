@@ -1,0 +1,30 @@
+# Generated output
+*.pdf
+*.html
+*.tex
+*.log
+*.aux
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.nav
+*.snm
+*.vrb
+*.bbl
+*.blg
+*.lof
+*.lot
+*.idx
+*.ilg
+*.ind
+*.cut
+*.pyg
+*.xml
+*.db
+# R
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj

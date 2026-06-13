@@ -2,13 +2,19 @@
 title: "International Student Presence and Dutch Graduate Labor Market Outcomes"
 subtitle: "A Shift-Share Instrumental Variables Approach — Analysis"
 output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+    toc: true
+    toc_depth: 2
+    number_sections: true
   pdf_document:
     toc: true
     toc_depth: 2
     number_sections: true
 ---
 
-```{r setup, include=FALSE}
+```{r analysis-setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 ```
 
