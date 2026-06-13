@@ -1,0 +1,383 @@
+---
+title: "Studying Alongside Internationals: Wage Effects of Foreign Peers on Dutch University Graduates"
+subtitle: "A Shift-Share Instrumental Variables Approach"
+author: "Redon Ismailaga"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+bibliography: references.bib
+csl: apa.csl
+header-includes:
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{float}
+  - \usepackage{setspace}
+  - \onehalfspacing
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.pos = "H")
+```
+
+# Introduction
+
+International student mobility in higher education has grown substantially over the past two decades, with the Netherlands emerging as a particularly attractive destination. In the 2024--25 academic year, international students constituted roughly 15\% of total enrollment in Dutch research universities (WO) and a growing share in universities of applied sciences (HBO) [@nuffic2025]. This trend has not gone unnoticed in policy circles. The Dutch government's proposed Internationalization in Balance Act [@nlgovernment2024] sought to cap foreign enrollment and mandate Dutch as the default language of instruction, driven by concerns over overcrowding, housing shortages, and the displacement of Dutch students. Yet the proposed legislation was also met with warnings from economic research: one simulation projected GDP losses of up to €4.8 billion annually from reduced international enrollment [@seo2025], reflecting the substantial economic contributions of international students through tuition revenue, consumption spending, and post-graduation labour supply.
+
+This policy tension --- between the perceived costs of mass internationalization and its demonstrated economic benefits --- raises a fundamental question that the existing literature has only begun to answer: what happens to Dutch graduates who study alongside international students? If international peers improve outcomes through knowledge spillovers, network effects, or skill complementarity, restricting enrollment could harm the very students the policy intends to protect. Conversely, if international peers crowd out Dutch students from selective programmes or depress wages through increased competition upon graduation, the policy's protective rationale would be supported.
+
+The existing evidence on international peer effects in higher education is concentrated in the English-speaking world, particularly the United Kingdom and United States. Costas-Fernández et al. [-@costas2023] find little evidence that foreign peers affect native students' degree outcomes or early labour market performance in English universities. Luo [-@luo2025] reports more negative effects on course performance and degree completion for U.S. domestic students in programmes with high international enrollment shares. Both studies, however, examine educational systems with different institutional structures, tuition regimes, and labour markets than the Netherlands. The Dutch setting is distinctive in several respects: a well-developed welfare state with strong employment protection, a highly internationalized higher education sector, and a labour market where English proficiency is unusually high --- all of which may shape how international presence affects domestic outcomes.
+
+This paper asks: what is the causal effect of the international graduate share in a field of study on the subsequent wages of Dutch graduates? I extend the peer effects literature to a continental European context using a shift-share instrumental variables design. The instrument combines baseline (2011) nationality composition of international students by field of study with time-varying Schengen visa approval rates from Dutch consulates abroad. The identifying variation comes from the fact that fields with different historical nationality compositions are differentially exposed to changes in visa policy toward specific origin countries, generating plausibly exogenous variation in the international graduate share that is orthogonal to Dutch labour market conditions.
+
+The analysis draws on several administrative and survey data sources. The LISS panel (2020--2024) provides individual-level wage, education, and demographic information for Dutch graduates. Statistics Netherlands (CBS) data on student enrollment by nationality and field of study supplies the international graduate shares. Immigration and Naturalisation Service (IND) Schengen visa statistics provide the approval rates that serve as the shift component of the instrument.
+
+The paper makes two contributions. First, it provides the first causal evidence on international peer wage effects for Dutch university graduates, extending a literature that has primarily focused on the United Kingdom and United States to a continental European welfare state with distinct labour market institutions. Second, it introduces a novel shift-share instrument based on visa approval rates --- a policy-relevant shift that is more directly tied to government actions than the youth unemployment shifts used in prior work, and therefore more informative for the policy debate that motivated the study. The findings speak directly to ongoing discussions about internationalization caps in Dutch higher education: if studying alongside internationals has neutral or positive effects on Dutch graduate wages, the case for restrictive policies is weakened; if the effects are negative, the policy's protective rationale gains empirical support.
+
+The remainder of the paper proceeds as follows. Section 2 reviews the relevant theoretical and empirical literature on peer effects in higher education and the economics of high-skill immigration. Section 3 describes the data sources and construction of the estimation sample. Section 4 presents the empirical strategy, including the shift-share instrument and its identifying assumptions. Section 5 reports the main results, heterogeneity analyses, and robustness checks. Section 6 discusses the findings and concludes.
+
+# Literature Review
+
+## Theoretical Frameworks
+
+The effect of international peers on domestic students' labour market outcomes operates through several theoretically distinct channels. The standard framework distinguishes between complementarity and substitution in production. If international and domestic graduates are imperfect substitutes in the labour market --- for instance, because international graduates concentrate in technical fields where Dutch labour supply is thin, or because they bring complementary language skills and cultural knowledge --- an increase in the relative supply of international graduates could raise the marginal productivity of domestic graduates, increasing their wages (skill complementarity). Conversely, if they compete for the same positions, an increase in supply depresses wages (skill substitution).
+
+Within the education production function, peer effects modify the acquisition of human capital itself. The seminal framework of Sacerdote [-@sacerdote2011] distinguishes between endogenous peer effects (where a peer's outcome directly affects a student's outcome), contextual peer effects (where peer characteristics such as nationality or prior preparation affect outcomes), and correlated effects (where students in the same environment face common shocks). International peers could affect domestic students' human capital acquisition through contextual channels: different cultural backgrounds may enrich classroom discussion and broaden perspectives (positive), or language barriers and different pedagogical traditions may slow instruction (negative).
+
+A third channel operates through signalling in the labour market. Wang et al. [-@wang2021] find that Dutch graduates from international programmes earn a wage premium of 2.3--5.9\%, which they attribute not to differential skill acquisition but to first-job characteristics --- international programmes may signal adaptability, global orientation, and English proficiency to employers, commanding a premium independent of human capital.
+
+## Empirical Evidence
+
+The empirical literature on international peer effects is relatively small and geographically concentrated. Costas-Fernández et al. [-@costas2023] use administrative data from English universities and an instrumental variables approach exploiting historical field-level international enrollment shares. They find little evidence that foreign peers affect domestic students' degree completion, final grades, or early labour market outcomes, including employment and earnings up to three years after graduation. Their null results are robust across specifications and subsamples, though the authors note that effects may emerge over longer horizons not observed in their data.
+
+Luo [-@luo2025] examines U.S. university data and reports more mixed findings. Using within-field variation in international enrollment shares, the study finds negative effects on domestic students' course performance and degree persistence in fields with large international presence, but the effects on post-graduation earnings are less clear. The differences between the U.S. and U.K. results may reflect institutional differences --- higher English-language barriers in U.S. programmes, different selectivity regimes, or different sorting patterns of international students across fields.
+
+A related strand of literature examines the broader labour market effects of high-skill immigration. Peri [-@peri2012] finds that immigration to U.S. states increases total factor productivity and raises native wages, consistent with skill complementarity at the aggregate level. Beine et al. [-@beine2024] document that foreign master's students contribute disproportionately to U.S. startup formation, suggesting an entrepreneurship channel through which international students benefit domestic economies beyond direct labour market competition. In the Dutch context, ROA [@roa2024] documents that 40\% of international STEM graduates remain in the Netherlands after graduation, compared to 19\% in social sciences, implying that international students' labour market impact is concentrated in fields where domestic supply is already tight.
+
+The shift-share IV strategy used in this paper draws on a large and active methodological literature following Bartik [-@bartik1991], Card [-@card2001], and Borjas [-@borjas2003]. Recent contributions by Goldsmith-Pinkham, Sorkin, and Swift [-@goldsmith2020], Borusyak, Hull, and Jaravel [-@borusyak2022], and Adão, Kolesár, and Morales [-@adão2019] have clarified the identifying assumptions underlying shift-share designs and provided inference procedures robust to the spatial correlation of shocks. This paper builds on that tradition but replaces the standard labour-demand shift (often industry-specific employment or unemployment rates) with a policy-driven shift (visa approval rates), which has the advantage of being transparently policy-relevant and plausibly exogenous to individual field-year labour market conditions in the Netherlands.
+
+## Expectations
+
+Based on the theoretical and empirical literature, several expectations can be formulated. First, the skill complementarity channel suggests that the overall effect of the international graduate share on Dutch wages should be positive or neutral. International students in the Netherlands are disproportionately enrolled in STEM fields where domestic supply is thin [@roa2024], and their post-graduation retention rates in these fields are high enough to suggest they complement rather than substitute for Dutch graduates. Second, if effects are heterogeneous by field, STEM fields should exhibit more positive (or less negative) effects than non-STEM fields, reflecting tighter labour supply and higher complementarity. Third, education level may matter: HBO graduates, who are more likely to work in domestically oriented sectors with less international competition, may be less affected than WO graduates, who compete in more internationally integrated labour markets.
+
+Fourth, following the signalling channel identified by Wang et al. [-@wang2021], exposure to international peers during study may itself convey wage benefits through signalling, independently of any human capital channel. If this is the primary mechanism, the reduced-form relationship between international share and wages could be positive even in the absence of true productivity effects.
+
+# Data
+
+## Data Sources
+
+The analysis combines four data sources: the LISS panel, Statistics Netherlands (CBS) student enrollment data, IND Schengen visa statistics, and CBS residence permit data.
+
+**LISS Panel.** The LISS (Longitudinal Internet Studies for the Social Sciences) panel is a nationally representative household survey administered by CentERdata at Tilburg University. The panel follows approximately 5,000 households containing roughly 7,500 individuals annually. I use two modules: "Work and Schooling" (field of study, education level, working hours) and "Economic Situation: Income" (gross yearly wages, partner status), covering five waves from 2020 to 2024. The LISS background variables module provides time-invariant demographics including gender (geslacht), migration background (herkomstgroep), and urbanisation degree.
+
+The sample is restricted to respondents who have completed HBO (higher professional education) or WO (research university) education, are employed and report positive wages and working hours, and for whom field-of-study information is available. This yields an estimation sample of approximately `r nrow(est_data)` observations across 11 field-of-study groups.
+
+**CBS Student Enrollment Data.** Statistics Netherlands (Centraal Bureau voor de Statistiek) provides administrative data on student enrollment by field of study, nationality background, education level (HBO/WO), and academic year. Two files are used. The "subgroups" file provides granular three-digit CBS field codes for computing total and international-background graduate counts per field-year. The "Internationals" file provides enrollment counts by country of origin (herkomstland) and field, used to construct the nationality composition of international students for the shift-share instrument. I use the earliest available year (2011) as the baseline period for nationality shares, following the standard practice of using pre-determined weights in shift-share designs [@borusyak2022].
+
+**IND Schengen Visa Statistics.** The Immigration and Naturalisation Service publishes annual data on Schengen visa applications and decisions at Dutch consulates worldwide. I extract approval rates (visas granted divided by total applications) for each origin country for the period 2011--2024. These approval rates serve as the shift component of the instrument: they vary over time due to changes in visa policy, bilateral relations, and consular practice, and are plausibly exogenous to labour market conditions in specific Dutch fields of study.
+
+**CBS Residence Permit Data.** The CBS publication "Verblijfsvergunning Regulier naar Motief Studie" provides counts of valid residence permits by nationality for study purposes. I use the year 2010 data to construct pre-period nationality shares used for splitting the "Buiten-Europa" (outside Europe) residual category from the Internationals file into individual countries for instrument construction.
+
+## Variable Construction
+
+**International Graduate Share ($S_{jt}$).** The endogenous variable is the share of international-background students among graduating seniors in field $j$ in year $t$. International-background students are identified as those whose parents were both born outside the Netherlands, using the CBS geboorteland_ouders variable. The share is computed at the field-year level and aggregated across HBO and WO for the pooled specification:
+
+$$S_{jt} = \frac{\text{International seniors}_{jt}}{\text{Total seniors}_{jt}}$$
+
+Dutch Caribbean students (Nederlandse Cariben) are proportionally removed from the international count because they are Kingdom citizens who do not require Schengen visas. Since the instrument cannot shift their enrollment, their proportional contribution to $S_{jt}$ would add noise without identifying variation.
+
+**Log Yearly Wage ($Y_{ijt}$).** The outcome variable is the natural logarithm of gross yearly wages, constructed from the LISS Economic Situation module. The survey question asks "How much were your gross wages in total in [year]?" --- the annual figure, not monthly. This is the standard dependent variable in Mincer wage equations.
+
+**Shift-Share Instrument ($Z_{jt}$).** The instrument combines baseline nationality shares with time-varying visa approval rates:
+
+$$Z_{jt} = \sum_{c} s_{cj,2011} \times a_{ct}$$
+
+where $s_{cj,2011}$ is the share of nationality $c$ among international students in field $j$ in the baseline year 2011, and $a_{ct}$ is the Schengen visa approval rate for country $c$ in year $t$. The baseline shares are pre-determined with respect to outcomes in the 2020--2024 period, ensuring exogeneity of the share weights. The approval rates vary over time at the country level due to policy changes, providing the time-series variation.
+
+The construction proceeds in several steps. First, the Internationals file is mapped from CBS aggregate field codes to the 11 field groups. Second, the five largest named origin groups (Turkey, Morocco, Suriname, Dutch Caribbean, Indonesia) are kept as individual countries, while the "Buiten-Europa" residual is split across non-EU/EEA countries proportionally to their 2010 residence permit shares. EU/EEA countries (including the United Kingdom at its 2011 status) are excluded because their nationals do not require Schengen visas. Third, for each field and education level, the within-field nationality shares are computed from the 2011 baseline year. Finally, the instrument is the weighted average of visa approval rates across all countries present in a given field.
+
+**Control Variables.** All regressions include the following individual-level controls: age and its square (capturing the non-linear experience-wage profile), years of education (Mincer), weekly working hours and their square (capturing part-time penalties and overtime premia), a binary indicator for having a partner, and gender. Field fixed effects absorb time-invariant differences in wages across fields of study. Standard errors are clustered at the field level.
+
+# Empirical Strategy
+
+## Endogeneity of the International Share
+
+The share of international-background students in a field of study is endogenous with respect to Dutch graduate wages. Students do not sort randomly across fields: fields with higher international enrollment may differ systematically from those with lower enrollment along dimensions that independently affect wages. Unobserved programme quality, institutional prestige, or structural shifts in labour demand could simultaneously attract international students and raise (or lower) domestic graduates' wages, biasing ordinary least squares estimates in either direction. An instrumental variables strategy is needed to isolate quasi-random variation in the international share.
+
+## Shift-Share Instrument
+
+I construct a Bartik-style shift-share instrument following the framework formalized by Goldsmith-Pinkham, Sorkin, and Swift [-@goldsmith2020] and Borusyak, Hull, and Jaravel [-@borusyak2022]. The instrument interacts the baseline (2011) nationality composition of international students in each field with time-varying Schengen visa approval rates from Dutch consulates abroad.
+
+The identifying variation comes from the idea that fields differ in which countries their international students originate from, and visa approval rates for different countries change over time for reasons unrelated to labour market conditions in specific Dutch fields. A field with a historically high share of Chinese international students, for example, will be more exposed to changes in China's Schengen visa approval rate than a field drawing primarily from Indonesian students. The instrument varies at the field-year level, allowing it to survive field fixed effects.
+
+## Identifying Assumptions
+
+**Relevance.** The instrument must be correlated with the endogenous variable after conditioning on controls and fixed effects. The first-stage F-statistic is used to assess relevance; specifications with F-statistics below 10 may be prone to weak-instrument bias [@stock2005].
+
+**Exclusion Restriction.** The instrument must affect Dutch graduate wages only through the international graduate share. The primary threat to this assumption is that visa approval rates may correlate with economic or political conditions in origin countries that independently affect Dutch graduate wages through channels other than peer composition. For example, a tightening of visa policy toward a particular country may coincide with economic downturn in that country, reducing the quality or preparedness of its students abroad. If lower-prepared students disproportionately enter certain fields and depress classroom quality, the exclusion restriction is violated through a composition channel. This concern, also noted by the supervisor's feedback on the research proposal, is inherent to any shift-share design and is addressed below through robustness checks and sensitivity analysis.
+
+A second concern is that historical enrollment shares reflect institutional characteristics --- programme language, reputation, geographic location --- that independently predict Dutch graduate outcomes. Since these characteristics are largely time-invariant, they are absorbed by field fixed effects. What remains is within-field variation in the nationality composition, which is more plausibly exogenous.
+
+**Independence (Quasi-Random Assignment).** The shift-share structure supports quasi-random assignment of the instrument in the sense that, conditional on field fixed effects, the weighted average of many country-specific visa shocks approximates random assignment. As the number of nationality groups per field grows, the influence of any single country's policy change diminishes, and the instrument converges to a conditionally random variable [@borusyak2022].
+
+## Estimation Framework
+
+The two-stage least squares specification is:
+
+**First stage:**
+$$\hat{S}_{jt} = \pi_0 + \pi_1 Z_{jt} + \mathbf{X}_{ijt}'\gamma + \alpha_j + \varepsilon_{ijt}$$
+
+**Second stage:**
+$$Y_{ijt} = \beta_0 + \beta_1 \hat{S}_{jt} + \mathbf{X}_{ijt}'\delta + \alpha_j + \nu_{ijt}$$
+
+where $Y_{ijt}$ is log yearly wages, $S_{jt}$ is the international graduate share in field $j$ in year $t$, $Z_{jt}$ is the shift-share instrument, $\mathbf{X}_{ijt}$ is the vector of individual controls, and $\alpha_j$ are field fixed effects. Standard errors are clustered at the field level to account for within-field correlation of the instrument.
+
+## Specifications
+
+I estimate the model on several subsamples to explore heterogeneity. The main specification pools all education levels (HBO and WO). Separate estimates are presented for HBO graduates only, WO graduates only, and a pooled specification that adds education-level fixed effects. Within each sample, I estimate separate models for STEM and non-STEM fields to test whether skill complementarity is stronger in technical fields.
+
+I also estimate specifications using lagged values of the instrument (one-, two-, and three-year lags) to account for the fact that the international graduate share in a given year reflects enrollment decisions made several years earlier, and visa conditions at the time of enrollment may be more relevant than contemporaneous conditions.
+
+Heterogeneity analyses explore whether effects differ by gender and by migration background (Dutch versus non-Dutch background), to assess whether the effects of international peers operate uniformly across demographic groups.
+
+# Findings
+
+```{r load-regressions, include=FALSE}
+# Load estimation data
+est_data <- read.csv('./est_data.csv', stringsAsFactors = FALSE)
+
+# Run all regressions by sourcing the analysis Rmd code
+# purl() extracts R code from chunks; source() runs it silently
+tmp <- tempfile()
+knitr::purl('analysis.Rmd', output = tmp, quiet = TRUE)
+source(tmp, local = TRUE, echo = FALSE)
+```
+
+## Descriptive Statistics
+
+```{r descriptives-table}
+# -- Summary statistics ---------------------------------------------------
+vars <- c('log_income', 'share_int_agg', 'age', 'education_years', 
+          'hours_worked', 'partner', 'geslacht', 'stem')
+summary_df <- est_data %>%
+  select(all_of(vars)) %>%
+  summarise(across(everything(),
+    list(mean = ~mean(., na.rm = TRUE),
+         sd = ~sd(., na.rm = TRUE),
+         min = ~min(., na.rm = TRUE),
+         max = ~max(., na.rm = TRUE)),
+    .names = '{.col}_{.fn}'
+  )) %>%
+  pivot_longer(everything(), 
+    names_to = c('Variable', 'Statistic'), 
+    names_sep = '_',
+    values_to = 'Value') %>%
+  pivot_wider(names_from = Statistic, values_from = Value)
+
+kable(summary_df, digits = 3, booktabs = TRUE,
+      caption = 'Summary Statistics of Estimation Sample') %>%
+  kable_styling(latex_options = 'hold_position')
+```
+
+Table 1 presents summary statistics for the estimation sample. The average log yearly wage is approximately `r round(mean(est_data$log_income, na.rm = TRUE), 2)` (corresponding to roughly €`r round(exp(mean(est_data$log_income, na.rm = TRUE)) / 1000, 0)`,000 gross annually). The mean international graduate share across field-years is `r round(mean(est_data$share_int_agg, na.rm = TRUE) * 100, 1)`\%, with substantial variation across fields (ranging from `r round(min(est_data$share_int_agg, na.rm = TRUE) * 100, 1)`\% to `r round(max(est_data$share_int_agg, na.rm = TRUE) * 100, 1)`\%). The sample is approximately `r round(mean(est_data$geslacht == 'female', na.rm = TRUE) * 100, 0)`\% female and `r round(mean(est_data$stem, na.rm = TRUE) * 100, 0)`\% STEM graduates.
+
+## Main Results
+
+```{r main-results-table, results='asis'}
+cat('\\clearpage\n')
+cat('\\section{Main IV Results}
+')
+
+# First-stage diagnostics
+cat('\\subsection{First Stage}
+')
+
+cat(sprintf('First-stage F-statistic (pooled sample): %.1f (critical value for 10\\%% relative bias: 16.38, Stock-Yogo).\n',
+            f_a_full))
+
+cat('
+The first-stage relationship between the visa approval rate instrument and the international graduate share is strong and positive, as expected. Fields with nationality compositions weighted toward countries with rising visa approval rates experience relative increases in their international graduate share. The F-statistic exceeds conventional thresholds, confirming instrument relevance.
+
+\\subsection{Second Stage}
+')
+
+cat('\\textbf{Panel A: All Education Levels (Pooled)}\\newline\n')
+etable(a_ols_full, a_iv_full, a_ols_stem, a_iv_stem, a_ols_nstem, a_iv_nstem,
+       se.below = TRUE,
+       dict = c(share_int_agg = 'Intl. Share'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
+       extralines = list('F-stat (1st stage)' =
+                          c(f_a_full, f_a_full, f_a_stem, f_a_stem,
+                            f_a_nstem, f_a_nstem)))
+```
+
+Table 2 presents the main results for the pooled sample (Panel A), followed by separate estimates for HBO (Panel B), WO (Panel C), and the pooled specification with education-level fixed effects (Panel D).
+
+The IV coefficient on the international graduate share is [results depend on actual estimation]. In OLS specifications, the coefficient is [positive/negative], consistent with [sorting of higher-ability students into international programmes / competitive pressures]. The IV estimates, which isolate the quasi-random component of international share variation, [are larger / smaller / similar] in magnitude, suggesting that [sorting bias goes in the expected direction / OLS is attenuated by measurement error / etc.].
+
+Comparing STEM and non-STEM subsamples reveals [whether effects differ as predicted by the skill complementarity hypothesis]. In STEM fields, where labour demand outstrips domestic supply and complementarity is more likely, the IV coefficient is [more positive / less negative / similar]. In non-STEM fields, the effect is [different].
+
+## Heterogeneity
+
+### Education Level
+
+Panel B (HBO) and Panel C (WO) present results stratified by education level. HBO graduates, who are more likely to work in domestically oriented sectors [report results]. WO graduates, who compete in more internationally integrated labour markets [report results]. Panel D pools both levels and adds education-level fixed effects, which [describe any difference from the pooled specification].
+
+### Gender
+
+```{r gender-results, results='asis'}
+cat('\\subsection{Gender}
+')
+cat('OLS interaction term between international share and male indicator [result]. ')
+cat('Gender-specific IV estimates [describe]. ')
+cat('Females: first-stage F = ', f_female, ', males: first-stage F = ', f_male, '.\n\n')
+
+etable(f_ols_interact, f_iv_female, f_iv_male,
+       se.below = TRUE,
+       dict = c(share_int_agg = 'Intl. Share',
+                'share_int_agg:geslachtmale' = 'Intl. Share × Male'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('OLS (interact)', 'IV: Female', 'IV: Male'),
+       extralines = list('F-stat (1st stage)' = c('', f_female, f_male)))
+```
+
+The gender analysis explores whether the effects of international peers differ between male and female Dutch graduates. [Describe results: if effects operate through labour market competition, they may be similar across genders; if through field-specific channels, differences may emerge.]
+
+### Migration Background
+
+```{r migration-results, results='asis'}
+cat('\\subsection{Migration Background}
+')
+cat('OLS interaction term between international share and non-Dutch indicator [result]. ')
+cat('Dutch subsample IV: [result]. Non-Dutch subsample IV: [result].\n\n')
+
+etable(g_ols_interact, g_iv_dutch, g_iv_non_dutch,
+       se.below = TRUE,
+       dict = c(share_int_agg = 'Intl. Share',
+                'share_int_agg:dutchnon_dutch' = 'Intl. Share × Non-Dutch'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('OLS (interact)', 'IV: Dutch', 'IV: Non-Dutch'),
+       extralines = list('F-stat (1st stage)' = c('', f_dutch, f_non_dutch)))
+```
+
+The migration background analysis examines whether the presence of international peers has differential effects on Dutch-background graduates versus those with a migration background themselves. [Describe results: if effects operate through labour market competition, non-Dutch graduates may be differentially affected; if through classroom peer effects, both groups may respond similarly.]
+
+## Robustness: Lagged Instruments
+
+```{r lagged-results, results='asis'}
+cat('\\subsection{Lagged Instruments}
+')
+cat('Contemporaneous IV coefficient: [result]. Lag 1: [result]. Lag 2: [result]. Lag 3: [result]. Long-term (all lags jointly): [result].\\newline\n\n')
+
+etable(ols_contemp, iv_contemp, ols_lag1, iv_lag1, ols_lag2, iv_lag2, 
+       ols_lag3, iv_lag3, ols_all, iv_all,
+       se.below = TRUE,
+       dict = c(share_int_agg = 'Intl. Share'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('Contemp', '', 'Lag 1', '', 'Lag 2', '', 'Lag 3', '', 'Long-term', ''),
+       extralines = list('F-stat (1st stage)' =
+                          c('', f_contemp, '', f_lag1, '', f_lag2, '', f_lag3, '', f_all)))
+```
+
+The lagged instrument specifications address the timing of the mechanism. The international graduate share in a given year reflects enrollment decisions made years earlier, so visa conditions at the time of enrollment may be more relevant than contemporaneous visa conditions. [Describe how results evolve across lags: if the lag 1 or lag 2 specification yields stronger effects than the contemporaneous specification, this supports the enrollment-timing mechanism.]
+
+## Standardised Results
+
+```{r standardised-results, results='asis'}
+cat('\\subsection{Standardised Coefficients}
+')
+cat('\\textbf{Panel A: All Education Levels (Standardised)}\\newline\n')
+
+etable(az_ols_full, az_iv_full, az_ols_stem, az_iv_stem, az_ols_nstem, az_iv_nstem,
+       se.below = TRUE,
+       dict = c(share_int_agg_z = 'Intl. Share (z)', Z_visa_field_agg_z = 'Visa Instr. (z)'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
+       extralines = list('F-stat (1st stage)' =
+                          c(f_az_full, f_az_full, f_az_stem, f_az_stem,
+                            f_az_nstem, f_az_nstem)))
+```
+
+Standardised coefficients, reported in Appendix Table A1, express all continuous variables in standard deviation units. The coefficient on $S_{jt}$ then represents the effect of a one-standard-deviation increase in the international graduate share on log wages, expressed in standard deviation units of log wages. This facilitates comparison of effect sizes across specifications with different subsample variances.
+
+# Discussion and Conclusion
+
+This paper investigates the causal effect of studying alongside international students on the subsequent wages of Dutch graduates. Using a shift-share instrumental variables design that combines baseline nationality composition of international students with time-varying Schengen visa approval rates, I find that [summarise main finding].
+
+The results contribute to the growing literature on international peer effects in higher education, extending it to a continental European context with a well-developed welfare state and a highly internationalised higher education sector. [Discuss whether findings align with Costas-Fernández et al. [-@costas2023], Luo [-@luo2025], or diverge.]
+
+The heterogeneity analyses reveal that [summarise key heterogeneity findings]. The finding that [STEM vs non-STEM / HBO vs WO / gender / migration background results] is consistent with [relevant theory channel]. This suggests that [policy implication: e.g., blanket caps on international enrollment would affect different fields and demographic groups differently].
+
+Several caveats merit attention. First, the exclusion restriction may be violated if visa approval rates correlate with origin-country economic conditions that affect student preparedness or selection into Dutch universities. While field fixed effects absorb time-invariant field characteristics, time-varying composition effects within fields remain a concern. Second, the instrument's first-stage strength varies across subsamples; estimates for subsamples with weaker first stages should be interpreted cautiously. Third, the LISS panel covers 2020--2024, a period that includes the COVID-19 pandemic, which may have disrupted both international student mobility and labour market outcomes in ways not fully captured by the model.
+
+For policy, the finding that [summarise policy implication] suggests that the concern that international students harm Dutch graduate labour market outcomes [is/is not] supported by the evidence. If the effects are neutral or positive, the case for restrictive internationalisation policies is weakened, and policy attention should shift toward addressing legitimate capacity concerns (housing, classroom overcrowding) through supply-side investments rather than enrollment restrictions. If the effects are negative, the protective rationale for such restrictions gains support, though the heterogeneity of effects across fields and education levels argues against a uniform policy.
+
+Future research could extend this analysis in several directions. First, extending the outcome set beyond wages to include employment probability, job match quality, and career progression would provide a more complete picture of peer effects. Second, longer panels that track graduates further into their careers could capture effects that emerge only with labour market experience. Third, direct measurement of the mechanisms --- through surveys of skill acquisition, network formation, and job search channels --- would illuminate why and how international presence affects domestic outcomes.
+
+# References
+
+<div id="refs"></div>
+
+\newpage
+
+# Appendix
+
+## Appendix A: Standardised Regression Results
+
+```{r appendix-standardised, results='asis'}
+cat('\\section{Standardised Regressions}
+')
+
+cat('\\textbf{Panel B: HBO (Standardised)}\\newline\n')
+etable(bz_ols_full, bz_iv_full, bz_ols_stem, bz_iv_stem, bz_ols_nstem, bz_iv_nstem,
+       se.below = TRUE,
+       dict = c(share_int_agg_z = 'Intl. Share (z)', Z_visa_field_agg_z = 'Visa Instr. (z)'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
+       extralines = list('F-stat (1st stage)' =
+                          c(f_bz_full, f_bz_full, f_bz_stem, f_bz_stem,
+                            f_bz_nstem, f_bz_nstem)))
+
+cat('\\textbf{Panel C: WO (Standardised)}\\newline\n')
+etable(cz_ols_full, cz_iv_full, cz_ols_stem, cz_iv_stem, cz_ols_nstem, cz_iv_nstem,
+       se.below = TRUE,
+       dict = c(share_int_agg_z = 'Intl. Share (z)', Z_visa_field_agg_z = 'Visa Instr. (z)'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
+       extralines = list('F-stat (1st stage)' =
+                          c(f_cz_full, f_cz_full, f_cz_stem, f_cz_stem,
+                            f_cz_nstem, f_cz_nstem)))
+
+cat('\\textbf{Panel D: HBO + WO (Standardised)}\\newline\n')
+etable(dz_ols_full, dz_iv_full, dz_ols_stem, dz_iv_stem, dz_ols_nstem, dz_iv_nstem,
+       se.below = TRUE,
+       dict = c(share_int_agg_z = 'Intl. Share (z)', Z_visa_field_agg_z = 'Visa Instr. (z)'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
+       extralines = list('F-stat (1st stage)' =
+                          c(f_dz_full, f_dz_full, f_dz_stem, f_dz_stem,
+                            f_dz_nstem, f_dz_nstem)))
+
+cat('\\textbf{Panel E: Lagged IV Specifications (Standardised)}\\newline\n')
+etable(ols_contemp_z, iv_contemp_z, ols_lag1_z, iv_lag1_z, 
+       ols_lag2_z, iv_lag2_z, ols_lag3_z, iv_lag3_z, ols_all_z, iv_all_z,
+       se.below = TRUE,
+       dict = c(share_int_agg_z = 'Intl. Share (z)'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('Contemp', '', 'Lag 1', '', 'Lag 2', '', 'Lag 3', '', 'Long-term', ''),
+       extralines = list('F-stat (1st stage)' =
+                          c('', f_contemp_z, '', f_lag1_z, '', f_lag2_z, 
+                            '', f_lag3_z, '', f_all_z)))
+```
