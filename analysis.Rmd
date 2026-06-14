@@ -2,19 +2,13 @@
 title: "International Student Presence and Dutch Graduate Labor Market Outcomes"
 subtitle: "A Shift-Share Instrumental Variables Approach — Analysis"
 output:
-  prettydoc::html_pretty:
-    theme: cayman
-    highlight: github
-    toc: true
-    toc_depth: 2
-    number_sections: true
   pdf_document:
     toc: true
     toc_depth: 2
     number_sections: true
 ---
 
-```{r analysis-setup, include=FALSE}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 ```
 
@@ -295,8 +289,66 @@ etable(g_ols_interact, g_iv_dutch, g_iv_non_dutch,
        fitstat = c('n', 'r2'),
        headers = c('OLS (interact)', 'IV: Dutch', 'IV: Non-Dutch'),
        extralines = list('F-stat (1st stage)' = c('', f_dutch, f_non_dutch)))
-```
 
+# --- Panel H: Age Group Effects (20-34 vs 35+) --------------------------------
+# Younger workers (20-34) face more immediate competition from new graduates,
+# potentially depressing wages (negative IV coefficient), while older workers
+# (35+) may benefit from complementarities (positive coefficient).
+# Split-sample IV because single instrument cannot identify interaction terms.
+
+# Split into age groups
+young <- est_data %>% filter(age >= 20 & age <= 34)
+older <- est_data %>% filter(age >= 35)
+
+# OLS with age-group interaction
+h_ols_interact <- feols(
+  log_income ~ share_int_agg * age_young + age + age_sq + education_years +
+    hours_worked + hours_sq + partner + geslacht | field,
+  data = est_data %>% mutate(age_young = age >= 20 & age <= 34),
+  cluster = ~ field
+)
+
+# IV split by age group
+h_iv_young <- feols(
+  log_income ~ age + age_sq + education_years + hours_worked + hours_sq +
+    partner + geslacht | field | share_int_agg ~ Z_visa_field_agg,
+  data = young, cluster = ~ field
+)
+h_iv_older <- feols(
+  log_income ~ age + age_sq + education_years + hours_worked + hours_sq +
+    partner + geslacht | field | share_int_agg ~ Z_visa_field_agg,
+  data = older, cluster = ~ field
+)
+
+# First-stage F-stats (split by age group)
+fs_young <- feols(
+  share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years +
+    hours_worked + hours_sq + partner + geslacht | field,
+  data = young, cluster = ~ field
+)
+fs_older <- feols(
+  share_int_agg ~ Z_visa_field_agg + age + age_sq + education_years +
+    hours_worked + hours_sq + partner + geslacht | field,
+  data = older, cluster = ~ field
+)
+
+f_young <- round(wald(fs_young, 'Z_visa_field_agg', print = FALSE)$stat, 1)
+f_older <- round(wald(fs_older, 'Z_visa_field_agg', print = FALSE)$stat, 1)
+
+cat('\n\n\\textbf{Panel H: Age Group Effects (20-34 vs 35+)}\\
+\\textit{OLS with interaction; IV estimated separately by age group.}\\
+\\textit{Age subsample F-stats: 20-34 = ', f_young, ', 35+ = ', f_older, '.}\\
+\n')
+
+etable(h_ols_interact, h_iv_young, h_iv_older,
+       se.below = TRUE,
+       dict = c(share_int_agg = 'Intl. Share',
+                'share_int_agg:age_youngTRUE' = 'Intl. Share × Age 20-34'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('OLS (interact)', 'IV: Age 20-34', 'IV: Age 35+'),
+       extralines = list('F-stat (1st stage)' = c('', f_young, f_older)))
+```
 
 ```{r regressions-lag}
 # -- Panel E: Lagged IV specifications --------------------------------------
