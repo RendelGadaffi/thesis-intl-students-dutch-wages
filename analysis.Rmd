@@ -677,6 +677,63 @@ etable(dz_ols_full, dz_iv_full, dz_ols_stem, dz_iv_stem, dz_ols_nstem, dz_iv_nst
        extralines = list('F-stat (1st stage)' =
                           c(f_dz_full, f_dz_full, f_dz_stem, f_dz_stem,
                             f_dz_nstem, f_dz_nstem)))
+
+# --- Panel H-z: Age Group Effects (20-34 vs 35+) — Standardized -------------
+
+# Split into age groups (using already-standardized data)
+young_z <- est_data_z %>% filter(age >= 20 & age <= 34)
+older_z <- est_data_z %>% filter(age >= 35)
+
+# OLS with age-group interaction
+hz_ols_interact <- feols(
+  log_income_z ~ share_int_agg_z * age_young + age_z + age_sq_z +
+    education_years_z + hours_worked_z + hours_sq_z + partner + geslacht | field,
+  data = est_data_z %>% mutate(age_young = age >= 20 & age <= 34),
+  cluster = ~ field
+)
+
+# IV split by age group
+hz_iv_young <- feols(
+  log_income_z ~ age_z + age_sq_z + education_years_z + hours_worked_z +
+    hours_sq_z + partner + geslacht | field |
+    share_int_agg_z ~ Z_visa_field_agg_z,
+  data = young_z, cluster = ~ field
+)
+hz_iv_older <- feols(
+  log_income_z ~ age_z + age_sq_z + education_years_z + hours_worked_z +
+    hours_sq_z + partner + geslacht | field |
+    share_int_agg_z ~ Z_visa_field_agg_z,
+  data = older_z, cluster = ~ field
+)
+
+# First-stage F-stats (split by age group)
+fs_young_z <- feols(
+  share_int_agg_z ~ Z_visa_field_agg_z + age_z + age_sq_z + education_years_z +
+    hours_worked_z + hours_sq_z + partner + geslacht | field,
+  data = young_z, cluster = ~ field
+)
+fs_older_z <- feols(
+  share_int_agg_z ~ Z_visa_field_agg_z + age_z + age_sq_z + education_years_z +
+    hours_worked_z + hours_sq_z + partner + geslacht | field,
+  data = older_z, cluster = ~ field
+)
+
+f_young_z <- round(wald(fs_young_z, 'Z_visa_field_agg_z', print = FALSE)$stat, 1)
+f_older_z <- round(wald(fs_older_z, 'Z_visa_field_agg_z', print = FALSE)$stat, 1)
+
+cat('\n\n\\textbf{Panel H: Age Group Effects (20-34 vs 35+) — Standardized}\\
+\\textit{OLS with interaction; IV estimated separately by age group.}\\
+\\textit{Age subsample F-stats: 20-34 = ', f_young_z, ', 35+ = ', f_older_z, '.}\\
+\n')
+
+etable(hz_ols_interact, hz_iv_young, hz_iv_older,
+       se.below = TRUE,
+       dict = c(share_int_agg_z = 'Intl. Share (z)',
+                'share_int_agg_z:age_youngTRUE' = 'Intl. Share (z) × Age 20-34'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('OLS (interact)', 'IV: Age 20-34', 'IV: Age 35+'),
+       extralines = list('F-stat (1st stage)' = c('', f_young_z, f_older_z)))
 ```
 
 ```{r regressions-z-lag}
