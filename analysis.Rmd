@@ -885,7 +885,7 @@ ar_low_pval <- pf(ar_low_stat, ar_low_df1, ar_low_df2, lower.tail = FALSE)
 # Wild cluster bootstrap AR test: robust with few clusters (5 fields in low group)
 # The Webb (2014) six-point distribution (wcv13) is recommended for < 10 clusters.
 # We implement a manual wild cluster bootstrap: under H0 (beta_Z = 0), generate
-# y* from the restricted model, multiply residuals by Rademacher weights (±1)
+# y* from the restricted model, multiply residuals by Webb (2014) six-point weights
 # at the cluster level, re-estimate the unrestricted model, and collect the F-stat.
 rf_restricted <- feols(log_income ~ age + age_sq + education_years +
                          hours_worked + hours_sq + partner + geslacht | field,
@@ -893,11 +893,13 @@ rf_restricted <- feols(log_income ~ age + age_sq + education_years +
 e_resid <- resid(rf_restricted)
 clusters <- unique(d_low$field)
 n_clusters <- length(clusters)
-set.seed(20240616)
+set.seed(20240617)
 B <- 999
 boot_F <- numeric(B)
 for (b in 1:B) {
-  w <- sample(c(-1, 1), n_clusters, replace = TRUE)
+  # Webb (2014) six-point distribution: ±sqrt(3/2), ±1, ±sqrt(1/2) with equal prob
+  w <- sample(c(-sqrt(3/2), -1, -sqrt(1/2), sqrt(1/2), 1, sqrt(3/2)),
+              n_clusters, replace = TRUE)
   names(w) <- clusters
   y_star <- fitted(rf_restricted) + e_resid * w[as.character(d_low$field)]
   d_boot <- d_low
