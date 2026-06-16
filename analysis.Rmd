@@ -894,7 +894,7 @@ e_resid <- resid(rf_restricted)
 clusters <- unique(d_low$field)
 n_clusters <- length(clusters)
 set.seed(20240617)
-B <- 999
+B <- 9999
 boot_F <- numeric(B)
 for (b in 1:B) {
   # Webb (2014) six-point distribution: ±sqrt(3/2), ±1, ±sqrt(1/2) with equal prob
