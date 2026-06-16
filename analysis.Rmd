@@ -871,10 +871,23 @@ rf_placebo_high <- feols(log_income ~ Z_visa_field_agg + age + age_sq +
                            partner + geslacht | field,
                          data = d_high, cluster = ~ field)
 
+# Anderson-Rubin test (low-share subsample)
+# The AR test is robust to weak instruments. Under H0: β_IV = 0, the
+# reduced-form F-stat on Z follows an F(1, N - K - 1) distribution,
+# where K is the number of regressors (controls + FE dummies).
+# We use wald() on the reduced form to get the AR statistic.
+ar_low <- wald(rf_placebo_low, 'Z_visa_field_agg', print = FALSE)
+ar_low_stat <- ar_low$stat
+ar_low_df1  <- ar_low$df1
+ar_low_df2  <- ar_low$df2
+ar_low_pval <- pf(ar_low_stat, ar_low_df1, ar_low_df2, lower.tail = FALSE)
+
 cat('\n\n\\textbf{Exclusion Restriction Defence 1: Placebo by International Share}\\
 \\textit{Below / above median of share\\_int\\_agg. If the instrument works through
 the international graduate channel, effects should concentrate in high-share fields.}\\
 \\textit{Low-share F = ', f_placebo_low, ', High-share F = ', f_placebo_high, '.}\\
+\\textit{AR test (low-share subsample): F(', ar_low_df1, ', ', ar_low_df2, ') = ',
+      round(ar_low_stat, 3), ', p = ', round(ar_low_pval, 3), '.}\\
 \n')
 
 etable(rf_placebo_low, rf_placebo_high, iv_placebo_low, iv_placebo_high,
