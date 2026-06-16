@@ -884,16 +884,32 @@ ar_low_pval <- pf(ar_low_stat, ar_low_df1, ar_low_df2, lower.tail = FALSE)
 
 # Wild cluster bootstrap AR test: robust with few clusters (5 fields in low group)
 # The Webb (2014) six-point distribution (wcv13) is recommended for < 10 clusters.
-requireNamespace("fwildclusterboot", quietly = TRUE)
+if (!requireNamespace("fwildclusterboot", quietly = TRUE)) {
+  cat("Installing fwildclusterboot for wild cluster bootstrap...\n")
+  install.packages("fwildclusterboot", quiet = TRUE)
+}
 if (requireNamespace("fwildclusterboot", quietly = TRUE)) {
-  boot_ar <- fwildclusterboot::boottest(rf_placebo_low,
-                                         param = "Z_visa_field_agg",
-                                         B = 9999,
-                                         type = "wcv13")
-  ar_boot_pval <- boot_ar$p.value
+  boot_ar <- tryCatch(
+    fwildclusterboot::boottest(rf_placebo_low,
+                                param = "Z_visa_field_agg",
+                                B = 9999,
+                                type = "wcv13"),
+    error = function(e) {
+      cat("Wild cluster bootstrap failed:", e$message, "\n")
+      return(NULL)
+    }
+  )
+  if (!is.null(boot_ar)) {
+    ar_boot_pval <- boot_ar$p.value
+    ar_boot_stat <- boot_ar$stat
+  } else {
+    ar_boot_pval <- NA
+    ar_boot_stat <- NA
+  }
 } else {
   ar_boot_pval <- NA
-  cat("\\textit{Note: install fwildclusterboot for wild cluster bootstrap p-value.}\\\\n")
+  ar_boot_stat <- NA
+  cat("Could not install fwildclusterboot. Install manually: install.packages('fwildclusterboot')\n")
 }
 
 cat('\n\n\\textbf{Exclusion Restriction Defence 1: Placebo by International Share}\\
@@ -902,7 +918,9 @@ the international graduate channel, effects should concentrate in high-share fie
 \\textit{Low-share F = ', f_placebo_low, ', High-share F = ', f_placebo_high, '.}\\
 \\textit{AR test (low-share subsample): asymptotic F(', ar_low_df1, ', ', ar_low_df2, ') = ',
       round(ar_low_stat, 3), ', p = ', round(ar_low_pval, 3), ';
-      wild cluster bootstrap p = ', round(ar_boot_pval, 3), '.}\\
+      wild cluster bootstrap',
+      if (!is.na(ar_boot_stat)) paste0(' F = ', round(ar_boot_stat, 3)) else '',
+      ' p = ', round(ar_boot_pval, 3), '.}\\
 \n')
 etable(rf_placebo_low, rf_placebo_high, iv_placebo_low, iv_placebo_high,
        se.below = TRUE,
