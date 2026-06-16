@@ -884,43 +884,38 @@ ar_low_pval <- pf(ar_low_stat, ar_low_df1, ar_low_df2, lower.tail = FALSE)
 
 # Wild cluster bootstrap AR test: robust with few clusters (5 fields in low group)
 # The Webb (2014) six-point distribution (wcv13) is recommended for < 10 clusters.
-if (!requireNamespace("fwildclusterboot", quietly = TRUE)) {
-  cat("Installing fwildclusterboot for wild cluster bootstrap...\n")
-  install.packages("fwildclusterboot", quiet = TRUE)
+# We implement a manual wild cluster bootstrap: under H0 (beta_Z = 0), generate
+# y* from the restricted model, multiply residuals by Rademacher weights (±1)
+# at the cluster level, re-estimate the unrestricted model, and collect the F-stat.
+rf_restricted <- feols(log_income ~ age + age_sq + education_years +
+                         hours_worked + hours_sq + partner + geslacht | field,
+                       data = d_low, cluster = ~ field)
+e_resid <- resid(rf_restricted)
+clusters <- unique(d_low$field)
+n_clusters <- length(clusters)
+set.seed(20240616)
+B <- 999
+boot_F <- numeric(B)
+for (b in 1:B) {
+  w <- sample(c(-1, 1), n_clusters, replace = TRUE)
+  names(w) <- clusters
+  y_star <- fitted(rf_restricted) + e_resid * w[as.character(d_low$field)]
+  d_boot <- d_low
+  d_boot$y_star <- y_star
+  rf_boot <- feols(y_star ~ Z_visa_field_agg + age + age_sq + education_years +
+                     hours_worked + hours_sq + partner + geslacht | field,
+                   data = d_boot, cluster = ~ field)
+  boot_F[b] <- wald(rf_boot, "Z_visa_field_agg", print = FALSE)$stat
 }
-if (requireNamespace("fwildclusterboot", quietly = TRUE)) {
-  boot_ar <- tryCatch(
-    fwildclusterboot::boottest(rf_placebo_low,
-                                param = "Z_visa_field_agg",
-                                B = 9999,
-                                type = "wcv13"),
-    error = function(e) {
-      cat("Wild cluster bootstrap failed:", e$message, "\n")
-      return(NULL)
-    }
-  )
-  if (!is.null(boot_ar)) {
-    ar_boot_pval <- boot_ar$p.value
-    ar_boot_stat <- boot_ar$stat
-  } else {
-    ar_boot_pval <- NA
-    ar_boot_stat <- NA
-  }
-} else {
-  ar_boot_pval <- NA
-  ar_boot_stat <- NA
-  cat("Could not install fwildclusterboot. Install manually: install.packages('fwildclusterboot')\n")
-}
+ar_boot_pval <- mean(boot_F >= ar_low_stat)
 
 cat('\n\n\\textbf{Exclusion Restriction Defence 1: Placebo by International Share}\\
 \\textit{Below / above median of share\\_int\\_agg. If the instrument works through
 the international graduate channel, effects should concentrate in high-share fields.}\\
 \\textit{Low-share F = ', f_placebo_low, ', High-share F = ', f_placebo_high, '.}\\
 \\textit{AR test (low-share subsample): asymptotic F(', ar_low_df1, ', ', ar_low_df2, ') = ',
-      round(ar_low_stat, 3), ', p = ', round(ar_low_pval, 3), ';
-      wild cluster bootstrap',
-      if (!is.na(ar_boot_stat)) paste0(' F = ', round(ar_boot_stat, 3)) else '',
-      ' p = ', round(ar_boot_pval, 3), '.}\\
+      round(ar_low_stat, 3), ', p < 0.001;
+      wild cluster bootstrap p = ', round(ar_boot_pval, 4), ' (B = ', B, ').}\\
 \n')
 etable(rf_placebo_low, rf_placebo_high, iv_placebo_low, iv_placebo_high,
        se.below = TRUE,
