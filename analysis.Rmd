@@ -892,17 +892,75 @@ interact_stars <- ifelse(interact_p < 0.01, '***',
                   ifelse(interact_p < 0.05, '**',
                   ifelse(interact_p < 0.10, '*', '')))
 
+# --- Rademacher wild cluster bootstrap for the interaction coefficient ---------
+# The cluster-robust SEs on Z_x_bl rely on asymptotic theory (G → ∞). With only
+# 11 clusters, asymptotic inference may over-reject. A wild cluster bootstrap
+# provides more reliable inference. We use Rademacher weights (η_g = ±1, equal
+# probability) which have excellent finite-sample properties for G ≥ 10 (Cameron,
+# Gelbach & Miller 2008).
+
+# Restricted model: drop Z_x_bl (H0: β_{Z_x_bl} = 0)
+# This is the reduced-form without the interaction term.
+rf_restricted <- feols(
+  log_income ~ Z_visa_z + age + age_sq + education_years +
+    hours_worked + hours_sq + partner + geslacht | field,
+  data = est_data_int, cluster = ~ field
+)
+
+# Extract residuals and fitted values under H0
+e_resid   <- resid(rf_restricted)
+y_hat     <- fitted(rf_restricted)
+clusters  <- unique(est_data_int$field)
+n_clusters <- length(clusters)
+
+# Observed t-statistic for Z_x_bl (from the unrestricted model)
+# wald() returns the F-statistic for a single coefficient = t². Take sqrt.
+t_obs <- sqrt(wald(rf_interact, 'Z_x_bl', print = FALSE)$stat) *
+  sign(coef(rf_interact)['Z_x_bl'])
+
+set.seed(20240617)
+B <- 9999
+boot_t <- numeric(B)
+
+for (b in 1:B) {
+  # Rademacher: ±1 with equal probability
+  w <- sample(c(-1, 1), n_clusters, replace = TRUE)
+  names(w) <- clusters
+
+  # Generate y* under H0
+  y_star <- y_hat + e_resid * w[as.character(est_data_int$field)]
+
+  # Re-estimate the unrestricted model on bootstrapped y*
+  d_boot <- est_data_int
+  d_boot$y_star <- y_star
+
+  m_boot <- feols(
+    y_star ~ Z_visa_z + Z_x_bl + age + age_sq + education_years +
+      hours_worked + hours_sq + partner + geslacht | field,
+    data = d_boot, cluster = ~ field
+  )
+
+  # Collect the t-statistic for Z_x_bl
+  boot_t[b] <- sqrt(wald(m_boot, 'Z_x_bl', print = FALSE)$stat) *
+    sign(coef(m_boot)['Z_x_bl'])
+}
+
+# Two-sided wild bootstrap p-value
+boot_p <- mean(abs(boot_t) >= abs(t_obs))
+
 # Report
 cat(sprintf(
-'\n\n\\textbf{Exclusion Restriction Defence: Interaction Test (Z × Baseline Share)}\\\\
+'\n\n\\textbf{Exclusion Restriction Defence: Interaction Test (Z × Baseline Share)}\\\
 \\textit{Full sample, N = %d across %d fields. No split, no small-G problem.}\\\
 \\textit{If the instrument works through the international graduate channel,}\\
 \\textit{the reduced-form wage effect of Z should increase with baseline share.}\\\
-\\textit{Interaction coefficient (Z × share_bl): %.4f (SE = %.4f, p = %.4f) %s}\\\
-\\textit{First-stage joint F (Z + Z × share_bl): %.1f}\\n\n',
+\\textit{Interaction coefficient (Z × share_bl): %.4f (SE = %.4f, asymptotic p = %.4f %s)}\\\
+\\textit{Wild cluster bootstrap p (Rademacher, B = %d): %.4f}\\\
+\\textit{First-stage joint F (Z + Z × share_bl): %.1f}\\\n\n',
   nobs(rf_interact),
   n_distinct(est_data_int$field),
   interact_coef, interact_se, interact_p, interact_stars,
+  B, boot_p,
   f_joint
 ))
 
