@@ -822,3 +822,130 @@ etable(ols_contemp_z, iv_contemp_z, ols_lag1_z, iv_lag1_z, ols_lag2_z, iv_lag2_z
        extralines = list('F-stat (1st stage)' =
                           c('', f_contemp_z, '', f_lag1_z, '', f_lag2_z, '', f_lag3_z, '', f_all_z)))
 ```
+
+```{r placebo-low-share, results='asis'}
+# -- Exclusion Restriction: Placebo test on low-share fields -------------------
+# If the IV effect operates through international graduate labour supply,
+# it should be concentrated in fields with above-median international shares.
+# Fields with below-median shares serve as a placebo: the first stage should
+# be weak and the reduced-form / IV should be near zero.
+
+share_med <- median(est_data$share_int_agg, na.rm = TRUE)
+d_low  <- est_data %>% filter(share_int_agg <  share_med)
+d_high <- est_data %>% filter(share_int_agg >= share_med)
+
+cat(sprintf('Median share_int_agg: %.3f\n', share_med))
+cat(sprintf('Low-share fields: %d obs\n', nrow(d_low)))
+cat(sprintf('High-share fields: %d obs\n', nrow(d_high)))
+
+# First stages
+fs_placebo_low  <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq +
+                           education_years + hours_worked + hours_sq +
+                           partner + geslacht | field,
+                         data = d_low, cluster = ~ field)
+fs_placebo_high <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq +
+                           education_years + hours_worked + hours_sq +
+                           partner + geslacht | field,
+                         data = d_high, cluster = ~ field)
+
+f_placebo_low  <- round(wald(fs_placebo_low,  'Z_visa_field_agg', print = FALSE)$stat, 1)
+f_placebo_high <- round(wald(fs_placebo_high, 'Z_visa_field_agg', print = FALSE)$stat, 1)
+
+# IV
+iv_placebo_low  <- feols(log_income ~ age + age_sq + education_years +
+                           hours_worked + hours_sq + partner + geslacht | field |
+                           share_int_agg ~ Z_visa_field_agg,
+                         data = d_low, cluster = ~ field)
+iv_placebo_high <- feols(log_income ~ age + age_sq + education_years +
+                           hours_worked + hours_sq + partner + geslacht | field |
+                           share_int_agg ~ Z_visa_field_agg,
+                         data = d_high, cluster = ~ field)
+
+# Reduced form (Z → wages directly)
+rf_placebo_low  <- feols(log_income ~ Z_visa_field_agg + age + age_sq +
+                           education_years + hours_worked + hours_sq +
+                           partner + geslacht | field,
+                         data = d_low, cluster = ~ field)
+rf_placebo_high <- feols(log_income ~ Z_visa_field_agg + age + age_sq +
+                           education_years + hours_worked + hours_sq +
+                           partner + geslacht | field,
+                         data = d_high, cluster = ~ field)
+
+cat('\n\n\\textbf{Exclusion Restriction Defence 1: Placebo by International Share}\\
+\\textit{Below / above median of share\\_int\\_agg. If the instrument works through
+the international graduate channel, effects should concentrate in high-share fields.}\\
+\\textit{Low-share F = ', f_placebo_low, ', High-share F = ', f_placebo_high, '.}\\
+\n')
+
+etable(rf_placebo_low, rf_placebo_high, iv_placebo_low, iv_placebo_high,
+       se.below = TRUE,
+       dict = c(share_int_agg = 'Intl. Share', Z_visa_field_agg = 'Visa Instr.'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('RF: Low', 'RF: High', 'IV: Low', 'IV: High'),
+       extralines = list('F-stat (1st stage)' =
+                          c('', '', f_placebo_low, f_placebo_high)))
+```
+
+```{r field-trends, results='asis'}
+# -- Exclusion Restriction: Field-specific linear trends -----------------------
+# If the exclusion restriction is violated because the instrument correlates
+# with field-level trade or FDI trends, adding field-specific linear trends
+# should absorb that channel. If the IV estimate survives, the concern is
+# attenuated.
+
+# Contemporaneous IV with field-specific trends (full sample)
+iv_trend <- feols(log_income ~ age + age_sq + education_years +
+                    hours_worked + hours_sq + partner + geslacht |
+                    field + field[survey_year] |
+                    share_int_agg ~ Z_visa_field_agg,
+                  data = est_data, cluster = ~ field)
+
+# First stage with trends
+fs_trend <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq +
+                    education_years + hours_worked + hours_sq +
+                    partner + geslacht | field + field[survey_year],
+                  data = est_data, cluster = ~ field)
+
+f_trend <- round(wald(fs_trend, 'Z_visa_field_agg', print = FALSE)$stat, 1)
+
+# STEM / Non-STEM with trends
+iv_trend_stem  <- feols(log_income ~ age + age_sq + education_years +
+                          hours_worked + hours_sq + partner + geslacht |
+                          field + field[survey_year] |
+                          share_int_agg ~ Z_visa_field_agg,
+                        data = est_data, cluster = ~ field, subset = ~ stem)
+iv_trend_nstem <- feols(log_income ~ age + age_sq + education_years +
+                          hours_worked + hours_sq + partner + geslacht |
+                          field + field[survey_year] |
+                          share_int_agg ~ Z_visa_field_agg,
+                        data = est_data, cluster = ~ field, subset = ~ !stem)
+
+fs_trend_stem  <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq +
+                          education_years + hours_worked + hours_sq +
+                          partner + geslacht | field + field[survey_year],
+                        data = est_data, cluster = ~ field, subset = ~ stem)
+fs_trend_nstem <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq +
+                          education_years + hours_worked + hours_sq +
+                          partner + geslacht | field + field[survey_year],
+                        data = est_data, cluster = ~ field, subset = ~ !stem)
+
+f_trend_stem  <- round(wald(fs_trend_stem,  'Z_visa_field_agg', print = FALSE)$stat, 1)
+f_trend_nstem <- round(wald(fs_trend_nstem, 'Z_visa_field_agg', print = FALSE)$stat, 1)
+
+cat('\n\n\\textbf{Exclusion Restriction Defence 2: Field-Specific Linear Trends}\\
+\\textit{Field-specific linear trends on survey\\_year absorb differential trends
+that could correlate with trade or FDI linkages.}\\
+\\textit{F-stats: Full = ', f_trend, ', STEM = ', f_trend_stem,
+', Non-STEM = ', f_trend_nstem, '.}\\
+\n')
+
+etable(iv_trend, iv_trend_stem, iv_trend_nstem,
+       se.below = TRUE,
+       dict = c(share_int_agg = 'Intl. Share'),
+       digits = 3, digits.stats = 3,
+       fitstat = c('n', 'r2'),
+       headers = c('Full', 'STEM', 'Non-STEM'),
+       extralines = list('F-stat (1st stage)' =
+                          c(f_trend, f_trend_stem, f_trend_nstem)))
+```
