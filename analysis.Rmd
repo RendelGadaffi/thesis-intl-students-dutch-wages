@@ -855,7 +855,6 @@ est_data_int <- est_data_int %>%
                     sd(share_bl, na.rm = TRUE),
     Z_visa_z    = (Z_visa_field_agg - mean(Z_visa_field_agg, na.rm = TRUE)) /
                     sd(Z_visa_field_agg, na.rm = TRUE),
-    Z_visa_z_sq = Z_visa_z^2,                   # quadratic term for non-linearity check
     Z_x_bl      = Z_visa_z * share_bl_z         # interaction term
   )
 
@@ -864,24 +863,24 @@ est_data_int <- est_data_int %>%
 # The coefficient on Z_x_bl tells us: does the reduced-form wage effect of Z
 # grow with baseline international intensity?
 rf_interact <- feols(
-  log_income ~ Z_visa_z + Z_visa_z_sq + Z_x_bl + age + age_sq + education_years +
+  log_income ~ Z_visa_z + Z_x_bl + age + age_sq + education_years +
     hours_worked + hours_sq + partner + geslacht | field,
   data = est_data_int, cluster = ~ field
 )
 
 # --- First-stage with interaction ---
-# Model: share_int_agg ~ Z + Z² + Z × share_bl + controls | field
+# Model: share_int_agg ~ Z + Z × share_bl + controls | field
 # The coefficient on Z_x_bl tells whether the first stage is also stronger in
 # high-intensity fields. If so, the reduced-form pattern runs through the
 # endogenous channel (share_int_agg), consistent with the exclusion restriction.
 fs_interact <- feols(
-  share_int_agg ~ Z_visa_z + Z_visa_z_sq + Z_x_bl + age + age_sq + education_years +
+  share_int_agg ~ Z_visa_z + Z_x_bl + age + age_sq + education_years +
     hours_worked + hours_sq + partner + geslacht | field,
   data = est_data_int, cluster = ~ field
 )
 
-# Joint F-test on all three Z terms in the first stage
-f_joint <- round(wald(fs_interact, c('Z_visa_z', 'Z_visa_z_sq', 'Z_x_bl'),
+# Joint F-test on both Z terms in the first stage
+f_joint <- round(wald(fs_interact, c('Z_visa_z', 'Z_x_bl'),
                        print = FALSE)$stat, 1)
 
 # Extract the interaction coefficient and its p-value from the reduced form
@@ -902,7 +901,7 @@ interact_stars <- ifelse(interact_p < 0.01, '***',
 # Restricted model: drop Z_x_bl (H0: β_{Z_x_bl} = 0)
 # This is the reduced-form without the interaction term.
 rf_restricted <- feols(
-  log_income ~ Z_visa_z + Z_visa_z_sq + age + age_sq + education_years +
+  log_income ~ Z_visa_z + age + age_sq + education_years +
     hours_worked + hours_sq + partner + geslacht | field,
   data = est_data_int, cluster = ~ field
 )
@@ -937,7 +936,7 @@ for (b in 1:B) {
   d_boot$y_star <- y_star
 
   m_boot <- feols(
-    y_star ~ Z_visa_z + Z_visa_z_sq + Z_x_bl + age + age_sq + education_years +
+    y_star ~ Z_visa_z + Z_x_bl + age + age_sq + education_years +
       hours_worked + hours_sq + partner + geslacht | field,
     data = d_boot, cluster = ~ field
   )
@@ -970,7 +969,6 @@ cat(sprintf(
 etable(rf_interact, fs_interact,
        se.below = TRUE,
        dict = c(Z_visa_z = 'Z (std.)',
-                Z_visa_z_sq = 'Z² (std.)',
                 Z_x_bl = 'Z × Baseline Share (std.)',
                 share_bl_z = 'Baseline Share (std.)'),
        digits = 4, digits.stats = 3,
