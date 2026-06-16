@@ -842,8 +842,8 @@ d_high <- est_data %>% filter(!field %in% bottom2_fields)
 
 cat(sprintf('Bottom 2 fields by mean share_int_agg: %s\n',
             paste(bottom2_fields, collapse = ', ')))
-cat(sprintf('Bottom-two-field subsample: %d obs\n', nrow(d_low)))
-cat(sprintf('Remaining fields: %d obs\n', nrow(d_high)))
+cat(sprintf('Bottom-two-field subsample: %d obs, mean share_int = %.4f\n', nrow(d_low), mean(d_low$share_int_agg, na.rm = TRUE)))
+cat(sprintf('Remaining fields: %d obs, mean share_int = %.4f\n', nrow(d_high), mean(d_high$share_int_agg, na.rm = TRUE)))
 
 # First stages
 fs_placebo_low  <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq +
