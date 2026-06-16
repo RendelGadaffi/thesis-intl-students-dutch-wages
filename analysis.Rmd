@@ -934,6 +934,7 @@ etable(rf_placebo_low, rf_placebo_high, iv_placebo_low, iv_placebo_high,
        headers = c('RF: Bottom 2', 'RF: Rest', 'IV: Bottom 2', 'IV: Rest'),
        extralines = list('F-stat (1st stage)' =
                           c('', '', f_placebo_low, f_placebo_high)))
+```
 
 ```{r field-trends, results='asis'}
 # -- Exclusion Restriction: Field-specific linear trends -----------------------
