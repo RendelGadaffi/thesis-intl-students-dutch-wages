@@ -824,19 +824,26 @@ etable(ols_contemp_z, iv_contemp_z, ols_lag1_z, iv_lag1_z, ols_lag2_z, iv_lag2_z
 ```
 
 ```{r placebo-low-share, results='asis'}
-# -- Exclusion Restriction: Placebo test on lowest-quartile fields -------------
+# -- Exclusion Restriction: Placebo test on bottom two fields ------------------
 # If the IV effect operates through international graduate labour supply,
 # it should be concentrated in fields with above-median international shares.
-# Fields in the lowest quartile of international shares serve as a placebo:
+# The two fields with the lowest average international share serve as a placebo:
 # the first stage should be weaker and the reduced-form / IV should be near zero.
 
-share_q25 <- quantile(est_data$share_int_agg, probs = 0.25, na.rm = TRUE)[[1]]
-d_low  <- est_data %>% filter(share_int_agg <  share_q25)
-d_high <- est_data %>% filter(share_int_agg >= share_q25)
+# Identify the two fields with the lowest mean share_int_agg
+field_means <- est_data %>%
+  group_by(field) %>%
+  summarise(mean_share = mean(share_int_agg, na.rm = TRUE), .groups = 'drop') %>%
+  arrange(mean_share)
+bottom2_fields <- field_means$field[1:2]
 
-cat(sprintf('Lower quartile of share_int_agg: %.3f\n', share_q25))
-cat(sprintf('Lowest-quartile fields: %d obs\n', nrow(d_low)))
-cat(sprintf('Upper three-quartile fields: %d obs\n', nrow(d_high)))
+d_low  <- est_data %>% filter(field %in% bottom2_fields)
+d_high <- est_data %>% filter(!field %in% bottom2_fields)
+
+cat(sprintf('Bottom 2 fields by mean share_int_agg: %s\n',
+            paste(bottom2_fields, collapse = ', ')))
+cat(sprintf('Bottom-two-field subsample: %d obs\n', nrow(d_low)))
+cat(sprintf('Remaining fields: %d obs\n', nrow(d_high)))
 
 # First stages
 fs_placebo_low  <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq +
@@ -882,7 +889,7 @@ ar_low_df1  <- ar_low$df1
 ar_low_df2  <- ar_low$df2
 ar_low_pval <- pf(ar_low_stat, ar_low_df1, ar_low_df2, lower.tail = FALSE)
 
-# Wild cluster bootstrap AR test: robust with few clusters (lowest-quartile group)
+# Wild cluster bootstrap AR test: robust with few clusters (bottom two fields)
 # The Webb (2014) six-point distribution (wcv13) is recommended for < 10 clusters.
 # We implement a manual wild cluster bootstrap: under H0 (beta_Z = 0), generate
 # y* from the restricted model, multiply residuals by Webb (2014) six-point weights
@@ -912,10 +919,10 @@ for (b in 1:B) {
 ar_boot_pval <- mean(boot_F >= ar_low_stat)
 
 cat('\n\n\\textbf{Exclusion Restriction Defence 1: Placebo by International Share}\\
-\\textit{Below lower quartile / above lower quartile of share\\_int\\_agg. If the instrument works through
+\\textit{Bottom two fields / remaining fields of share\\_int\\_agg. If the instrument works through
 the international graduate channel, effects should concentrate in high-share fields.}\\
-\\textit{Lowest-quartile F = ', f_placebo_low, ', Upper F = ', f_placebo_high, '.}\\
-\\textit{AR test (lowest-quartile subsample): asymptotic F(', ar_low_df1, ', ', ar_low_df2, ') = ',
+\\textit{Bottom-two-field F = ', f_placebo_low, ', Upper F = ', f_placebo_high, '.}\\
+\\textit{AR test (bottom-two-field subsample): asymptotic F(', ar_low_df1, ', ', ar_low_df2, ') = ',
       round(ar_low_stat, 3), ', p < 0.001;
       wild cluster bootstrap p = ', round(ar_boot_pval, 4), ' (B = ', B, ').}\\
 \n')
@@ -924,10 +931,9 @@ etable(rf_placebo_low, rf_placebo_high, iv_placebo_low, iv_placebo_high,
        dict = c(share_int_agg = 'Intl. Share', Z_visa_field_agg = 'Visa Instr.'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
-       headers = c('RF: Low-Q', 'RF: Upper', 'IV: Low-Q', 'IV: Upper'),
+       headers = c('RF: Bottom 2', 'RF: Rest', 'IV: Bottom 2', 'IV: Rest'),
        extralines = list('F-stat (1st stage)' =
                           c('', '', f_placebo_low, f_placebo_high)))
-```
 
 ```{r field-trends, results='asis'}
 # -- Exclusion Restriction: Field-specific linear trends -----------------------
