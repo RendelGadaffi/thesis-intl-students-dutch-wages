@@ -823,117 +823,96 @@ etable(ols_contemp_z, iv_contemp_z, ols_lag1_z, iv_lag1_z, ols_lag2_z, iv_lag2_z
                           c('', f_contemp_z, '', f_lag1_z, '', f_lag2_z, '', f_lag3_z, '', f_all_z)))
 ```
 
-```{r placebo-low-share, results='asis'}
-# -- Exclusion Restriction: Placebo test on bottom four fields -----------------
-# If the IV effect operates through international graduate labour supply,
-# it should be concentrated in fields with above-median international shares.
-# The four fields with the lowest average international share serve as a placebo:
-# the first stage should be weaker and the reduced-form / IV should be near zero.
+```{r interaction-test, results='asis'}
+# -- Exclusion Restriction Defence: Interaction test (Z × share_int_agg) --------
+# Instead of a split-sample placebo (which loses clusters and statistical power),
+# we test directly whether the instrument effect is stronger in fields where the
+# international graduate share is already high, using an interaction on the full
+# sample. This preserves all 11 clusters and avoids the small-G problem entirely.
+#
+# Logic: if the instrument works through the international graduate labour supply
+# channel, then the reduced-form effect of Z on wages (= effect of easier visa
+# policy on wages) should be increasing in a field's baseline international share.
+# Fields with no international graduates should show zero reduced-form effect.
 
-# Identify the four fields with the lowest mean share_int_agg
-field_means <- est_data %>%
+# Compute baseline (field-level mean) share_int_agg as pre-determined characteristic
+# Using the field mean (rather than the contemporaneous value) avoids endogeneity
+# from having the endogenous variable on the RHS of the reduced form. The baseline
+# is time-invariant and thus absorbed by the field FE; only the interaction with Z
+# (which varies by year × field) survives.
+share_bl <- est_data %>%
   group_by(field) %>%
-  summarise(mean_share = mean(share_int_agg, na.rm = TRUE), .groups = 'drop') %>%
-  arrange(mean_share)
-bottom4_fields <- field_means$field[1:4]
+  summarise(share_bl = mean(share_int_agg, na.rm = TRUE), .groups = 'drop')
 
-d_low  <- est_data %>% filter(field %in% bottom4_fields)
-d_high <- est_data %>% filter(!field %in% bottom4_fields)
+est_data_int <- est_data %>% left_join(share_bl, by = 'field')
 
-cat(sprintf('Bottom 4 fields by mean share_int_agg: %s\n',
-            paste(bottom4_fields, collapse = ', ')))
-cat(sprintf('Bottom-four-field subsample: %d obs, mean share_int = %.4f\n', nrow(d_low), mean(d_low$share_int_agg, na.rm = TRUE)))
-cat(sprintf('Remaining fields: %d obs, mean share_int = %.4f\n', nrow(d_high), mean(d_high$share_int_agg, na.rm = TRUE)))
+# Standardise both Z and baseline share so the interaction coefficient has a
+# meaningful scale: "effect of a one-SD increase in baseline share on the
+# reduced-form coefficient of Z on log wages".
+est_data_int <- est_data_int %>%
+  mutate(
+    share_bl_z  = (share_bl - mean(share_bl, na.rm = TRUE)) /
+                    sd(share_bl, na.rm = TRUE),
+    Z_visa_z    = (Z_visa_field_agg - mean(Z_visa_field_agg, na.rm = TRUE)) /
+                    sd(Z_visa_field_agg, na.rm = TRUE),
+    Z_x_bl      = Z_visa_z * share_bl_z        # interaction term
+  )
 
-# First stages
-fs_placebo_low  <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq +
-                           education_years + hours_worked + hours_sq +
-                           partner + geslacht | field,
-                         data = d_low, cluster = ~ field)
-fs_placebo_high <- feols(share_int_agg ~ Z_visa_field_agg + age + age_sq +
-                           education_years + hours_worked + hours_sq +
-                           partner + geslacht | field,
-                         data = d_high, cluster = ~ field)
+# --- Reduced-form with interaction ---
+# Model: log_income ~ Z + Z × share_bl + controls | field
+# The coefficient on Z_x_bl tells us: does the reduced-form wage effect of Z
+# grow with baseline international intensity?
+rf_interact <- feols(
+  log_income ~ Z_visa_z + Z_x_bl + age + age_sq + education_years +
+    hours_worked + hours_sq + partner + geslacht | field,
+  data = est_data_int, cluster = ~ field
+)
 
-f_placebo_low  <- round(wald(fs_placebo_low,  'Z_visa_field_agg', print = FALSE)$stat, 1)
-f_placebo_high <- round(wald(fs_placebo_high, 'Z_visa_field_agg', print = FALSE)$stat, 1)
+# --- First-stage with interaction ---
+# Model: share_int_agg ~ Z + Z × share_bl + controls | field
+# The coefficient on Z_x_bl tells whether the first stage is also stronger in
+# high-intensity fields. If so, the reduced-form pattern runs through the
+# endogenous channel (share_int_agg), consistent with the exclusion restriction.
+fs_interact <- feols(
+  share_int_agg ~ Z_visa_z + Z_x_bl + age + age_sq + education_years +
+    hours_worked + hours_sq + partner + geslacht | field,
+  data = est_data_int, cluster = ~ field
+)
 
-# IV
-iv_placebo_low  <- feols(log_income ~ age + age_sq + education_years +
-                           hours_worked + hours_sq + partner + geslacht | field |
-                           share_int_agg ~ Z_visa_field_agg,
-                         data = d_low, cluster = ~ field)
-iv_placebo_high <- feols(log_income ~ age + age_sq + education_years +
-                           hours_worked + hours_sq + partner + geslacht | field |
-                           share_int_agg ~ Z_visa_field_agg,
-                         data = d_high, cluster = ~ field)
+# Joint F-test on both Z terms in the first stage
+f_joint <- round(wald(fs_interact, c('Z_visa_z', 'Z_x_bl'),
+                       print = FALSE)$stat, 1)
 
-# Reduced form (Z → wages directly)
-rf_placebo_low  <- feols(log_income ~ Z_visa_field_agg + age + age_sq +
-                           education_years + hours_worked + hours_sq +
-                           partner + geslacht | field,
-                         data = d_low, cluster = ~ field)
-rf_placebo_high <- feols(log_income ~ Z_visa_field_agg + age + age_sq +
-                           education_years + hours_worked + hours_sq +
-                           partner + geslacht | field,
-                         data = d_high, cluster = ~ field)
+# Extract the interaction coefficient and its p-value from the reduced form
+rf_ct <- coeftable(rf_interact)
+interact_coef <- rf_ct['Z_x_bl', 'Estimate']
+interact_se   <- rf_ct['Z_x_bl', 'Std. Error']
+interact_p    <- rf_ct['Z_x_bl', 'Pr(>|t|)']
+interact_stars <- ifelse(interact_p < 0.01, '***',
+                  ifelse(interact_p < 0.05, '**',
+                  ifelse(interact_p < 0.10, '*', '')))
 
-# Anderson-Rubin test (low-share subsample)
-# The AR test is robust to weak instruments. Under H0: β_IV = 0, the
-# reduced-form F-stat on Z follows an F(1, N - K - 1) distribution,
-# where K is the number of regressors (controls + FE dummies).
-# We use wald() on the reduced form to get the AR statistic.
-ar_low <- wald(rf_placebo_low, 'Z_visa_field_agg', print = FALSE)
-ar_low_stat <- ar_low$stat
-ar_low_df1  <- ar_low$df1
-ar_low_df2  <- ar_low$df2
-ar_low_pval <- pf(ar_low_stat, ar_low_df1, ar_low_df2, lower.tail = FALSE)
+# Report
+cat(sprintf(
+'\n\n\\textbf{Exclusion Restriction Defence: Interaction Test (Z × Baseline Share)}\\\\
+\\textit{Full sample, N = %d across %d fields. No split, no small-G problem.}\\\
+\\textit{If the instrument works through the international graduate channel,}\\
+\\textit{the reduced-form wage effect of Z should increase with baseline share.}\\\
+\\textit{Interaction coefficient (Z × share_bl): %.4f (SE = %.4f, p = %.4f) %s}\\\
+\\textit{First-stage joint F (Z + Z × share_bl): %.1f}\\n\n',
+  nobs(rf_interact),
+  n_distinct(est_data_int$field),
+  interact_coef, interact_se, interact_p, interact_stars,
+  f_joint
+))
 
-# Wild cluster bootstrap AR test: robust with few clusters (bottom four fields)
-# The Webb (2014) six-point distribution (wcv13) is recommended for < 10 clusters.
-# We implement a manual wild cluster bootstrap: under H0 (beta_Z = 0), generate
-# y* from the restricted model, multiply residuals by Webb (2014) six-point weights
-# at the cluster level, re-estimate the unrestricted model, and collect the F-stat.
-rf_restricted <- feols(log_income ~ age + age_sq + education_years +
-                         hours_worked + hours_sq + partner + geslacht | field,
-                       data = d_low, cluster = ~ field)
-e_resid <- resid(rf_restricted)
-clusters <- unique(d_low$field)
-n_clusters <- length(clusters)
-set.seed(20240617)
-B <- 9999
-boot_F <- numeric(B)
-for (b in 1:B) {
-  # Webb (2014) six-point distribution: ±sqrt(3/2), ±1, ±sqrt(1/2) with equal prob
-  w <- sample(c(-sqrt(3/2), -1, -sqrt(1/2), sqrt(1/2), 1, sqrt(3/2)),
-              n_clusters, replace = TRUE)
-  names(w) <- clusters
-  y_star <- fitted(rf_restricted) + e_resid * w[as.character(d_low$field)]
-  d_boot <- d_low
-  d_boot$y_star <- y_star
-  rf_boot <- feols(y_star ~ Z_visa_field_agg + age + age_sq + education_years +
-                     hours_worked + hours_sq + partner + geslacht | field,
-                   data = d_boot, cluster = ~ field)
-  boot_F[b] <- wald(rf_boot, "Z_visa_field_agg", print = FALSE)$stat
-}
-ar_boot_pval <- mean(boot_F >= ar_low_stat)
-
-
-cat('\n\n\\textbf{Exclusion Restriction Defence 1: Placebo by International Share}\\
-\\textit{Bottom four fields / remaining fields of share\\_int\\_agg. If the instrument works through
-the international graduate channel, effects should concentrate in high-share fields.}\\
-\\textit{Bottom-four-field F = ', f_placebo_low, ', Upper F = ', f_placebo_high, '.}\\
-\\textit{AR test (bottom-four-field subsample): asymptotic F(', ar_low_df1, ', ', ar_low_df2, ') = ',
-      round(ar_low_stat, 3), ', p < 0.001;
-      wild cluster bootstrap p = ', round(ar_boot_pval, 4), ' (B = ', B, ').}\\
-\n')
-
-etable(rf_placebo_low, rf_placebo_high, iv_placebo_low, iv_placebo_high,
+etable(rf_interact, fs_interact,
        se.below = TRUE,
-       dict = c(share_int_agg = 'Intl. Share', Z_visa_field_agg = 'Visa Instr.'),
-       digits = 3, digits.stats = 3,
+       dict = c(Z_visa_z = 'Z (std.)',
+                Z_x_bl = 'Z × Baseline Share (std.)',
+                share_bl_z = 'Baseline Share (std.)'),
+       digits = 4, digits.stats = 3,
        fitstat = c('n', 'r2'),
-       headers = c('RF: Bottom 4', 'RF: Rest', 'IV: Bottom 4', 'IV: Rest'),
-       extralines = list('F-stat (1st stage)' =
-                          c('', '', f_placebo_low, f_placebo_high)))
+       headers = c('Reduced Form', 'First Stage'),
+       extralines = list('Joint F (Z terms)' = c('', f_joint)))
 ```
