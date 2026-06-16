@@ -892,12 +892,11 @@ interact_stars <- ifelse(interact_p < 0.01, '***',
                   ifelse(interact_p < 0.05, '**',
                   ifelse(interact_p < 0.10, '*', '')))
 
-# --- Rademacher wild cluster bootstrap for the interaction coefficient ---------
+# --- Webb (2014) wild cluster bootstrap for the interaction coefficient ---------
 # The cluster-robust SEs on Z_x_bl rely on asymptotic theory (G → ∞). With only
 # 11 clusters, asymptotic inference may over-reject. A wild cluster bootstrap
-# provides more reliable inference. We use Rademacher weights (η_g = ±1, equal
-# probability) which have excellent finite-sample properties for G ≥ 10 (Cameron,
-# Gelbach & Miller 2008).
+# provides more reliable inference. We use Webb (2014) six-point weights
+# (wcv13: ±√(3/2), ±1, ±√(1/2)), recommended for G < 10 (Webb 2014).
 
 # Restricted model: drop Z_x_bl (H0: β_{Z_x_bl} = 0)
 # This is the reduced-form without the interaction term.
@@ -923,8 +922,10 @@ B <- 9999
 boot_t <- numeric(B)
 
 for (b in 1:B) {
-  # Rademacher: ±1 with equal probability
-  w <- sample(c(-1, 1), n_clusters, replace = TRUE)
+  # Webb (2014) six-point distribution: ±√(3/2), ±1, ±√(1/2), equal prob 1/6
+  # Recommended for < 10 clusters (Cameron, Gelbach & Miller 2008).
+  w <- sample(c(-sqrt(3/2), -1, -sqrt(1/2), sqrt(1/2), 1, sqrt(3/2)),
+              n_clusters, replace = TRUE)
   names(w) <- clusters
 
   # Generate y* under H0
@@ -955,7 +956,7 @@ cat(sprintf(
 \\textit{If the instrument works through the international graduate channel,}\\
 \\textit{the reduced-form wage effect of Z should increase with baseline share.}\\\
 \\textit{Interaction coefficient (Z × share_bl): %.4f (SE = %.4f, asymptotic p = %.4f %s)}\\\
-\\textit{Wild cluster bootstrap p (Rademacher, B = %d): %.4f}\\\
+\\textit{Wild cluster bootstrap p (Webb six-point, B = %d): %.4f}\\\
 \\textit{First-stage joint F (Z + Z × share_bl): %.1f}\\\n\n',
   nobs(rf_interact),
   n_distinct(est_data_int$field),
