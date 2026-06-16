@@ -828,7 +828,7 @@ etable(ols_contemp_z, iv_contemp_z, ols_lag1_z, iv_lag1_z, ols_lag2_z, iv_lag2_z
 # Instead of a split-sample placebo (which loses clusters and statistical power),
 # we test directly whether the instrument effect is stronger in fields where the
 # international graduate share is already high, using an interaction on the full
-# sample. This preserves all 11 clusters and avoids the small-G problem entirely.
+# sample. This preserves all 10 fields and avoids the small-G problem entirely.
 #
 # Logic: if the instrument works through the international graduate labour supply
 # channel, then the reduced-form effect of Z on wages (= effect of easier visa
@@ -855,7 +855,8 @@ est_data_int <- est_data_int %>%
                     sd(share_bl, na.rm = TRUE),
     Z_visa_z    = (Z_visa_field_agg - mean(Z_visa_field_agg, na.rm = TRUE)) /
                     sd(Z_visa_field_agg, na.rm = TRUE),
-    Z_x_bl      = Z_visa_z * share_bl_z        # interaction term
+    Z_visa_z_sq = Z_visa_z^2,                   # quadratic term for non-linearity check
+    Z_x_bl      = Z_visa_z * share_bl_z         # interaction term
   )
 
 # --- Reduced-form with interaction ---
@@ -863,24 +864,24 @@ est_data_int <- est_data_int %>%
 # The coefficient on Z_x_bl tells us: does the reduced-form wage effect of Z
 # grow with baseline international intensity?
 rf_interact <- feols(
-  log_income ~ Z_visa_z + Z_x_bl + age + age_sq + education_years +
+  log_income ~ Z_visa_z + Z_visa_z_sq + Z_x_bl + age + age_sq + education_years +
     hours_worked + hours_sq + partner + geslacht | field,
   data = est_data_int, cluster = ~ field
 )
 
 # --- First-stage with interaction ---
-# Model: share_int_agg ~ Z + Z × share_bl + controls | field
+# Model: share_int_agg ~ Z + Z² + Z × share_bl + controls | field
 # The coefficient on Z_x_bl tells whether the first stage is also stronger in
 # high-intensity fields. If so, the reduced-form pattern runs through the
 # endogenous channel (share_int_agg), consistent with the exclusion restriction.
 fs_interact <- feols(
-  share_int_agg ~ Z_visa_z + Z_x_bl + age + age_sq + education_years +
+  share_int_agg ~ Z_visa_z + Z_visa_z_sq + Z_x_bl + age + age_sq + education_years +
     hours_worked + hours_sq + partner + geslacht | field,
   data = est_data_int, cluster = ~ field
 )
 
-# Joint F-test on both Z terms in the first stage
-f_joint <- round(wald(fs_interact, c('Z_visa_z', 'Z_x_bl'),
+# Joint F-test on all three Z terms in the first stage
+f_joint <- round(wald(fs_interact, c('Z_visa_z', 'Z_visa_z_sq', 'Z_x_bl'),
                        print = FALSE)$stat, 1)
 
 # Extract the interaction coefficient and its p-value from the reduced form
@@ -894,14 +895,14 @@ interact_stars <- ifelse(interact_p < 0.01, '***',
 
 # --- Webb (2014) wild cluster bootstrap for the interaction coefficient ---------
 # The cluster-robust SEs on Z_x_bl rely on asymptotic theory (G → ∞). With only
-# 11 clusters, asymptotic inference may over-reject. A wild cluster bootstrap
+# 10 fields, asymptotic inference may over-reject. A wild cluster bootstrap
 # provides more reliable inference. We use Webb (2014) six-point weights
 # (wcv13: ±√(3/2), ±1, ±√(1/2)), recommended for G < 10 (Webb 2014).
 
 # Restricted model: drop Z_x_bl (H0: β_{Z_x_bl} = 0)
 # This is the reduced-form without the interaction term.
 rf_restricted <- feols(
-  log_income ~ Z_visa_z + age + age_sq + education_years +
+  log_income ~ Z_visa_z + Z_visa_z_sq + age + age_sq + education_years +
     hours_worked + hours_sq + partner + geslacht | field,
   data = est_data_int, cluster = ~ field
 )
@@ -936,7 +937,7 @@ for (b in 1:B) {
   d_boot$y_star <- y_star
 
   m_boot <- feols(
-    y_star ~ Z_visa_z + Z_x_bl + age + age_sq + education_years +
+    y_star ~ Z_visa_z + Z_visa_z_sq + Z_x_bl + age + age_sq + education_years +
       hours_worked + hours_sq + partner + geslacht | field,
     data = d_boot, cluster = ~ field
   )
@@ -946,8 +947,9 @@ for (b in 1:B) {
     sign(coef(m_boot)['Z_x_bl'])
 }
 
-# Two-sided wild bootstrap p-value
+# Two-sided wild bootstrap p-value (avoid misleading "0.0000")
 boot_p <- mean(abs(boot_t) >= abs(t_obs))
+boot_p_report <- ifelse(boot_p < 0.0001, "< 0.0001", sprintf("%.4f", boot_p))
 
 # Report
 cat(sprintf(
@@ -956,18 +958,19 @@ cat(sprintf(
 \\textit{If the instrument works through the international graduate channel,}\\
 \\textit{the reduced-form wage effect of Z should increase with baseline share.}\\\
 \\textit{Interaction coefficient (Z × share_bl): %.4f (SE = %.4f, asymptotic p = %.4f %s)}\\\
-\\textit{Wild cluster bootstrap p (Webb six-point, B = %d): %.4f}\\\
+\\textit{Wild cluster bootstrap p (Webb six-point, B = %d): %s}\\\
 \\textit{First-stage joint F (Z + Z × share_bl): %.1f}\\\n\n',
   nobs(rf_interact),
   n_distinct(est_data_int$field),
   interact_coef, interact_se, interact_p, interact_stars,
-  B, boot_p,
+  B, boot_p_report,
   f_joint
 ))
 
 etable(rf_interact, fs_interact,
        se.below = TRUE,
        dict = c(Z_visa_z = 'Z (std.)',
+                Z_visa_z_sq = 'Z² (std.)',
                 Z_x_bl = 'Z × Baseline Share (std.)',
                 share_bl_z = 'Baseline Share (std.)'),
        digits = 4, digits.stats = 3,
