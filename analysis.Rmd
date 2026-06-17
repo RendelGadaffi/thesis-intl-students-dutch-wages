@@ -23,6 +23,122 @@ est_data <- read.csv('./est_data.csv', stringsAsFactors = FALSE)
 cat(sprintf('Loaded %d observations\n', nrow(est_data)))
 ```
 
+```{r descriptive-stats, results='asis'}
+# -- Descriptive statistics -----------------------------------------------------
+# Table 1: Summary statistics for all analysis variables.
+# Continuous vars: N, Mean, SD, Min, P25, Median, P75, Max.
+# Binary vars: proportion of the relevant category.
+# Categorical vars: count (N, %).
+
+# Helper format
+fmt2 <- function(x) sprintf('%.2f', x)
+
+# ---- Continuous variables ----
+cont_vars <- c(
+  'Age'                   = 'age',
+  'Education (years)'     = 'education_years',
+  'Hours worked'          = 'hours_worked',
+  'Tenure (years)'        = 'tenure_years',
+  'Log(income)'           = 'log_income',
+  'Gross income (EUR)'    = 'gross_income',
+  'Urbanisation (1-5)'    = 'sted',
+  'Intl. share (disagg.)' = 'share_int',
+  'Intl. share (agg.)'    = 'share_int_agg',
+  'Visa instrument'       = 'Z_visa_field_agg'
+)
+
+cont_stats <- do.call(rbind, lapply(names(cont_vars), function(nm) {
+  col <- cont_vars[nm]
+  x   <- est_data[[col]]
+  nn  <- sum(!is.na(x))
+  qq  <- quantile(x, c(0.25, 0.5, 0.75), na.rm = TRUE)
+  data.frame(Variable = nm, N = nn,
+    Mean = fmt2(mean(x, na.rm = TRUE)),
+    SD   = fmt2(sd(x, na.rm = TRUE)),
+    Min  = fmt2(min(x, na.rm = TRUE)),
+    P25  = fmt2(qq[1]), Med = fmt2(qq[2]),
+    P75  = fmt2(qq[3]), Max = fmt2(max(x, na.rm = TRUE)),
+    stringsAsFactors = FALSE)
+}))
+
+# ---- Binary variables (proportion of the "1" / relevant category) ----
+bin_rows <- list(
+  data.frame(Variable = 'STEM field',   N = sum(!is.na(est_data$stem)),
+             Prop = sprintf('%.3f', mean(est_data$stem == TRUE, na.rm = TRUE)),
+             stringsAsFactors = FALSE),
+  data.frame(Variable = 'Has partner',  N = sum(!is.na(est_data$partner)),
+             Prop = sprintf('%.3f', mean(est_data$partner == TRUE, na.rm = TRUE)),
+             stringsAsFactors = FALSE),
+  data.frame(Variable = 'Female',       N = sum(!is.na(est_data$geslacht)),
+             Prop = sprintf('%.3f', mean(est_data$geslacht == 'female', na.rm = TRUE)),
+             stringsAsFactors = FALSE),
+  data.frame(Variable = 'Dutch background', N = sum(!is.na(est_data$dutch)),
+             Prop = sprintf('%.3f', mean(est_data$dutch == 'dutch', na.rm = TRUE)),
+             stringsAsFactors = FALSE)
+)
+bin_stats <- bind_rows(bin_rows)
+
+# ---- Categorical variables (distribution) ----
+# survey_year
+yr <- est_data %>% count(survey_year) %>%
+  mutate(pct = sprintf('%.1f%%', 100 * n / sum(n)))
+year_df <- data.frame(
+  Variable = paste0('Survey year: ', yr$survey_year),
+  N = yr$n, Mean = yr$pct,
+  SD = '', Min = '', P25 = '', Med = '', P75 = '', Max = '',
+  stringsAsFactors = FALSE)
+
+# onderwijssoort
+ond <- est_data %>% count(onderwijssoort) %>%
+  mutate(pct = sprintf('%.1f%%', 100 * n / sum(n)))
+ond_df <- data.frame(
+  Variable = paste0('  ', ifelse(is.na(ond$onderwijssoort), 'NA', ond$onderwijssoort)),
+  N = ond$n, Mean = ond$pct,
+  SD = '', Min = '', P25 = '', Med = '', P75 = '', Max = '',
+  stringsAsFactors = FALSE)
+
+# ---- Combine ----
+panel_labels <- function(tbl, label) {
+  rbind(
+    data.frame(Variable = label, N = '', Mean = '', SD = '',
+               Min = '', P25 = '', Med = '', P75 = '', Max = '',
+               stringsAsFactors = FALSE),
+    tbl
+  )
+}
+
+# Add empty columns to bin_stats to match cont_stats schema
+bin_stats <- bin_stats %>% mutate(
+  SD = '', Min = '', P25 = '', Med = '', P75 = '', Max = ''
+)
+# Move Prop into Mean column for display
+names(bin_stats)[names(bin_stats) == 'Prop'] <- 'Mean'
+
+desc_table <- rbind(
+  panel_labels(cont_stats, '\\textbf{Continuous variables}'),
+  panel_labels(bin_stats,  '\\textbf{Binary variables}'),
+  panel_labels(year_df,    '\\textbf{Survey year}'),
+  panel_labels(ond_df,     '\\textbf{Education type}')
+)
+
+# ---- kable output ----
+kbl <- kable(desc_table, format = 'latex', booktabs = TRUE,
+      col.names = c('Variable', 'N', 'Mean / Prop.', 'SD', 'Min',
+                    'P25', 'Median', 'P75', 'Max'),
+      linesep = '', escape = FALSE, align = 'llrrrrrrr') %>%
+  kable_styling(font_size = 9, latex_options = c('hold_position')) %>%
+  column_spec(1, width = '4.5cm') %>%
+  column_spec(3, width = '1.8cm') %>%
+  row_spec(0, bold = TRUE)
+
+cat('\\n\n\\\\textbf{Table 1: Descriptive Statistics}\\\\\\n')
+cat('\\\\textit{Sample: ', nrow(est_data),
+    ' observations across ', n_distinct(est_data$field),
+    ' fields (survey years 2020-2024).}\\\\\\n\n', sep = '')
+cat(kbl)
+cat('\\n\n\\\\textit{Note: Binary variables report the proportion of the indicated category.}\\\\\\n\n')
+```
+
 ```{r regressions, results='asis'}
 # -- Main regression results ---------------------------------------------------
 # Three panels: (A) Full sample, (B) HBO only, (C) WO only.
