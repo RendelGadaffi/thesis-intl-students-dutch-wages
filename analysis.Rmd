@@ -1003,12 +1003,11 @@ f_joint <- round(wald(fs_interact, c('Z_visa_z', 'Z_x_bl'),
 # Uses unrestricted (full-model) residuals: y* = fitted + resid * w_g
 # Preserves the true coefficient vector; bootstrap t-distribution approximates
 # the sampling distribution for each coefficient (CGM 2008, Sec3.2).
-# Webb (2014) six-point weights because G = 10 (boundary of the < 10 rule).
+# Webb (2014) six-point weights because G = 10.
 
 rf_coef_names <- names(coef(rf_interact))
 n_coef <- length(rf_coef_names)
 
-# Observed t-stats for all coefficients
 t_obs_all <- sapply(rf_coef_names, function(v) {
   sqrt(wald(rf_interact, v, print = FALSE)$stat) * sign(coef(rf_interact)[v])
 })
@@ -1027,18 +1026,13 @@ for (b in 1:B) {
   w <- sample(c(-sqrt(3/2), -1, -sqrt(1/2), sqrt(1/2), 1, sqrt(3/2)),
               n_clusters, replace = TRUE)
   names(w) <- clusters
-
   y_star <- rf_fitted + rf_resid * w[as.character(est_data_int$field)]
-
   d_boot <- est_data_int
   d_boot$y_star <- y_star
-
   m_boot <- feols(
     y_star ~ Z_visa_z + Z_x_bl + age + age_sq + education_years +
       hours_worked + hours_sq + partner + geslacht | field,
-    data = d_boot, cluster = ~ field
-  )
-
+    data = d_boot, cluster = ~ field)
   for (j in seq_len(n_coef)) {
     v <- rf_coef_names[j]
     if (v %in% names(coef(m_boot))) {
@@ -1048,29 +1042,44 @@ for (b in 1:B) {
   }
 }
 
-# Bootstrap p-values (two-sided, avoid misleading "0.0000")
 boot_p_all <- sapply(seq_len(n_coef), function(j) {
   mean(abs(boot_t_mat[, j]) >= abs(t_obs_all[j]), na.rm = TRUE)
 })
 names(boot_p_all) <- rf_coef_names
 
-# --- Build the reduced-form table with dual significance --------------------
+# --- Assemble results --------------------------------------------------------
 rf_ct <- coeftable(rf_interact)
 
-# Helper: analytic significance stars
 stars_a <- function(p) {
   ifelse(p < 0.01, '***', ifelse(p < 0.05, '**', ifelse(p < 0.10, '*', '')))
 }
 
-# Helper: bootstrap significance (daggers, superscript)
-stars_b <- function(p) {
+# Bootstrap significance: + for console, dagger for LaTeX
+stars_b_txt <- function(p) {
+  ifelse(p < 0.01, '+++', ifelse(p < 0.05, '++', ifelse(p < 0.10, '+', '')))
+}
+stars_b_tex <- function(p) {
   ifelse(p < 0.01, '$^{\\dagger\\dagger\\dagger}$',
   ifelse(p < 0.05, '$^{\\dagger\\dagger}$',
   ifelse(p < 0.10, '$^{\\dagger}$', '')))
 }
 
-# Variable labels for the reduced-form table
 rf_label <- function(v) {
+  switch(v,
+    Z_visa_z          = 'Z (std.)',
+    Z_x_bl            = 'Z x Baseline Share (std.)',
+    age               = 'Age',
+    age_sq            = 'Age^2',
+    education_years   = 'Education (years)',
+    hours_worked      = 'Hours worked',
+    hours_sq          = 'Hours^2',
+    partnerTRUE       = 'Has partner',
+    geslachtmale      = 'Male',
+    v)
+}
+
+# LaTeX labels for the PDF table
+rf_label_tex <- function(v) {
   switch(v,
     Z_visa_z          = 'Z (std.)',
     Z_x_bl            = 'Z $\\times$ Baseline Share (std.)',
@@ -1081,10 +1090,9 @@ rf_label <- function(v) {
     hours_sq          = 'Hours$^2$',
     partnerTRUE       = 'Has partner',
     geslachtmale      = 'Male',
-    v)  # fallback
+    v)
 }
 
-# Interaction coefficient for inline text
 interact_p     <- rf_ct['Z_x_bl', 'Pr(>|t|)']
 interact_coef  <- rf_ct['Z_x_bl', 'Estimate']
 interact_se    <- rf_ct['Z_x_bl', 'Std. Error']
@@ -1094,67 +1102,108 @@ interact_bp_r  <- ifelse(interact_bp < 0.0001, '< 0.0001',
 interact_ap_r  <- ifelse(interact_p  < 0.0001, '< 0.0001',
                           sprintf('%.4f', interact_p))
 
-# Reduced-form header text
-cat(sprintf(
-'\n\n\\textbf{Exclusion Restriction Defence: Interaction Test}\\\\\n\\textit{Reduced form: log(income) $\\sim$ Z + Z $\\times$ baseline share + controls $\\mid$ field.}\\\\\n\\textit{Full sample, N = %d, %d fields. No split, preserving all clusters.}\\\\\n\n',
-  nobs(rf_interact),
-  n_distinct(est_data_int$field)
-))
+# --- Print console-readable output -------------------------------------------
+cat('\n\n--- Exclusion Restriction Defence: Interaction Test ---\n')
+cat(sprintf('Reduced form: log(income) ~ Z + Z x baseline share + controls | field\n'))
+cat(sprintf('Full sample, N = %d, %d fields\n\n', nobs(rf_interact),
+            n_distinct(est_data_int$field)))
 
-cat('\\begin{table}[htbp]\\centering\n')
-cat('\\caption{Reduced Form --- Interaction Test with Dual Significance}\n')
-cat('\\label{tab:interaction-rf}\n')
-cat('\\begin{tabular}{lrrll}\n')
-cat('\\toprule\n')
-cat('{Variable} & {Estimate} & {(SE)} & {Asympt.} & {Boots.}\\\\\n')
-cat('\\midrule\n')
+# Header
+cat(sprintf('%-26s %8s %10s %8s %7s %9s\n',
+            'Variable', 'Estimate', '(SE)', 'Asympt.', 'Boots.', 'p_boot'))
+cat(sprintf('%s\n', strrep('-', 72)))
 
 for (v in rf_coef_names) {
   est <- rf_ct[v, 'Estimate']
   se  <- rf_ct[v, 'Std. Error']
   ap  <- rf_ct[v, 'Pr(>|t|)']
   bp  <- boot_p_all[v]
-  cat(sprintf('%s & %.4f & (%.4f) & %s & %s \\\\\n',
-              rf_label(v), est, se, stars_a(ap), stars_b(bp)))
+  bp_str <- ifelse(bp < 0.0001, '<0.0001', sprintf('%.4f', bp))
+  cat(sprintf('%-26s %8.4f (%7.4f) %-8s %-7s %s\n',
+              rf_label(v), est, se, stars_a(ap), stars_b_txt(bp), bp_str))
 }
 
-cat('\\midrule\n')
-cat(sprintf('Field FE & \\multicolumn{4}{l}{Yes} \\\\\n'))
-cat(sprintf('Observations & \\multicolumn{4}{l}{%s} \\\\\n',
-            format(nobs(rf_interact), big.mark = ',')))
-cat(sprintf('R$^2$ & \\multicolumn{4}{l}{%.3f} \\\\\n',
-            r2(rf_interact)["r2"]))
-cat('\\bottomrule\n')
-cat('\\end{tabular}\n')
-cat('\\begin{minipage}{\\textwidth}\\small\n')
-cat('\\textit{Notes:} Standard errors clustered at field level (10 fields). ')
-cat('Asympt. = standard cluster-robust significance: $^* p < 0.10$, ')
-cat('$^{**} p < 0.05$, $^{***} p < 0.01$. ')
-cat('Boots. = wild cluster bootstrap significance (Webb six-point weights, ')
-cat('$B = 9999$): $^{\\dagger} p < 0.10$, ')
-cat('$^{\\dagger\\dagger} p < 0.05$, ')
-cat('$^{\\dagger\\dagger\\dagger} p < 0.01$.\\\\\n')
-cat('Interaction: $\\beta_{Z \\times BL} = ', sprintf('%.4f', interact_coef),
-    '$ (SE = ', sprintf('%.4f', interact_se),
-    '), asymptotic $p = ', interact_ap_r,
-    '$, wild bootstrap $p = ', interact_bp_r, '.\\\\\n')
-cat('\\end{minipage}\n')
-cat('\\end{table}\n')
+cat(sprintf('%s\n', strrep('-', 72)))
+cat(sprintf('Field FE: Yes\n'))
+cat(sprintf('Observations: %s\n', format(nobs(rf_interact), big.mark = ',')))
+cat(sprintf('R-squared: %.3f\n', r2(rf_interact)['r2']))
+cat(sprintf('\nInteraction: beta(Z x BL) = %.4f (SE = %.4f)\n',
+            interact_coef, interact_se))
+cat(sprintf('  Asymptotic p = %s; Wild bootstrap p = %s\n\n',
+            interact_ap_r, interact_bp_r))
+cat('Significance codes:\n')
+cat('  Asymptotic (cluster-robust): * p<0.10  ** p<0.05  *** p<0.01\n')
+cat(sprintf('  Bootstrap (Webb six-point, B = %d): ',
+            B))
+cat('+ p<0.10  ++ p<0.05  +++ p<0.01\n\n')
 
-# --- First stage (etable) ----------------------------------------------------
-cat('\n\n\\textbf{First Stage --- Interaction Test}\\\\\n\n')
+# --- LaTeX table (only when knitting to PDF) --------------------------------
+if (requireNamespace('knitr', quietly = TRUE) && knitr::is_latex_output()) {
+  cat('\\begin{table}[htbp]\\centering\n')
+  cat('\\caption{Reduced Form --- Interaction Test with Dual Significance}\n')
+  cat('\\label{tab:interaction-rf}\n')
+  cat('\\begin{tabular}{lrrll}\n')
+  cat('\\toprule\n')
+  cat('{Variable} & {Estimate} & {(SE)} & {Asympt.} & {Boots.}\\\\\n')
+  cat('\\midrule\n')
+  for (v in rf_coef_names) {
+    est <- rf_ct[v, 'Estimate']
+    se  <- rf_ct[v, 'Std. Error']
+    ap  <- rf_ct[v, 'Pr(>|t|)']
+    bp  <- boot_p_all[v]
+    cat(sprintf('%s & %.4f & (%.4f) & %s & %s \\\\\n',
+                rf_label_tex(v), est, se, stars_a(ap), stars_b_tex(bp)))
+  }
+  cat('\\midrule\n')
+  cat(sprintf('Field FE & \\multicolumn{4}{l}{Yes} \\\\\n'))
+  cat(sprintf('Observations & \\multicolumn{4}{l}{%s} \\\\\n',
+              format(nobs(rf_interact), big.mark = ',')))
+  cat(sprintf('R$^2$ & \\multicolumn{4}{l}{%.3f} \\\\\n',
+              r2(rf_interact)['r2']))
+  cat('\\bottomrule\n')
+  cat('\\end{tabular}\n')
+  cat('\\begin{minipage}{\\textwidth}\\small\n')
+  cat('\\textit{Notes:} Standard errors clustered at field level (10 fields). ')
+  cat('Asympt. = standard cluster-robust significance: $^* p < 0.10$, ')
+  cat('$^{**} p < 0.05$, $^{***} p < 0.01$. ')
+  cat('Boots. = wild cluster bootstrap significance (Webb six-point, ')
+  cat('$B = 9999$): $^{\\dagger} p < 0.10$, ')
+  cat('$^{\\dagger\\dagger} p < 0.05$, ')
+  cat('$^{\\dagger\\dagger\\dagger} p < 0.01$.\\\\\n')
+  cat('Interaction: $\\beta_{Z \\times BL} = ', sprintf('%.4f', interact_coef),
+      '$ (SE = ', sprintf('%.4f', interact_se),
+      '), asymptotic $p = ', interact_ap_r,
+      '$, bootstrap $p = ', interact_bp_r, '.\\\\\n')
+  cat('\\end{minipage}\n')
+  cat('\\end{table}\n')
+}
 
-# Joint F-test for first stage Z terms
+# --- First stage ------------------------------------------------------------
 f_joint_text <- round(wald(fs_interact, c('Z_visa_z', 'Z_x_bl'),
                             print = FALSE)$stat, 1)
 
+cat('\n\nFirst Stage --- Interaction Test\n\n')
 etable(fs_interact,
        se.below = TRUE,
        dict = c(Z_visa_z = 'Z (std.)',
-                Z_x_bl = 'Z $\\times$ Baseline Share (std.)',
+                Z_x_bl = 'Z x Baseline Share (std.)',
                 share_bl_z = 'Baseline Share (std.)'),
        digits = 4, digits.stats = 3,
        fitstat = c('n', 'r2'),
        headers = 'First Stage',
-       extralines = list('Joint $F$ (Z terms)' = f_joint_text))
+       extralines = list('Joint F (Z terms)' = f_joint_text))
+
+# LaTeX version of first stage header (only when knitting)
+if (requireNamespace('knitr', quietly = TRUE) && knitr::is_latex_output()) {
+  cat('\n\n\\textbf{First Stage --- Interaction Test}\\\\\n\n')
+  etable(fs_interact,
+         se.below = TRUE,
+         dict = c(Z_visa_z = 'Z (std.)',
+                  Z_x_bl = 'Z $\\times$ Baseline Share (std.)',
+                  share_bl_z = 'Baseline Share (std.)'),
+         digits = 4, digits.stats = 3,
+         fitstat = c('n', 'r2'),
+         headers = 'First Stage',
+         extralines = list('Joint $F$ (Z terms)' = f_joint_text))
+}
 ```
