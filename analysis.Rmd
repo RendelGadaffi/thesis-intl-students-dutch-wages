@@ -190,6 +190,7 @@ etable(a_ols_full, a_iv_full, a_ols_stem, a_iv_stem, a_ols_nstem, a_iv_nstem,
        dict = c(share_int_agg = 'Intl. Share'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
+       model.type = FALSE,
        headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
        extralines = list('F-stat (1st stage)' =
                           c(f_a_full, f_a_full, f_a_stem, f_a_stem, f_a_nstem, f_a_nstem)))
@@ -234,6 +235,7 @@ etable(b_ols_full, b_iv_full, b_ols_stem, b_iv_stem, b_ols_nstem, b_iv_nstem,
        dict = c(share_int_agg = 'Intl. Share'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
+       model.type = FALSE,
        headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
        extralines = list('F-stat (1st stage)' =
                           c(f_b_full, f_b_full, f_b_stem, f_b_stem, f_b_nstem, f_b_nstem)))
@@ -278,6 +280,7 @@ etable(c_ols_full, c_iv_full, c_ols_stem, c_iv_stem, c_ols_nstem, c_iv_nstem,
        dict = c(share_int_agg = 'Intl. Share'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
+       model.type = FALSE,
        headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
        extralines = list('F-stat (1st stage)' =
                           c(f_c_full, f_c_full, f_c_stem, f_c_stem, f_c_nstem, f_c_nstem)))
@@ -318,6 +321,7 @@ etable(d_ols_full, d_iv_full, d_ols_stem, d_iv_stem, d_ols_nstem, d_iv_nstem,
        dict = c(share_int_agg = 'Intl. Share'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
+       model.type = FALSE,
        extralines = list('F-stat (1st stage)' =
                           c(f_d_full, f_d_full, f_d_stem, f_d_stem, f_d_nstem, f_d_nstem)))
 
@@ -359,6 +363,7 @@ etable(f_ols_interact, f_iv_female, f_iv_male,
                 'share_int_agg:geslachtmale' = 'Intl. Share × Male'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
+       model.type = FALSE,
        headers = c('OLS (interact)', 'IV: Female', 'IV: Male'),
        extralines = list('F-stat (1st stage)' = c('', f_female, f_male)))
 
@@ -400,6 +405,7 @@ etable(g_ols_interact, g_iv_dutch, g_iv_non_dutch,
                 'share_int_agg:dutchnon_dutch' = 'Intl. Share × Non-Dutch'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
+       model.type = FALSE,
        headers = c('OLS (interact)', 'IV: Dutch', 'IV: Non-Dutch'),
        extralines = list('F-stat (1st stage)' = c('', f_dutch, f_non_dutch)))
 
@@ -459,6 +465,7 @@ etable(h_ols_interact, h_iv_young, h_iv_older,
                 'share_int_agg:age_youngTRUE' = 'Intl. Share × Age 20-34'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
+       model.type = FALSE,
        headers = c('OLS (interact)', 'IV: Age 20-34', 'IV: Age 35+'),
        extralines = list('F-stat (1st stage)' = c('', f_young, f_older)))
 ```
@@ -539,6 +546,7 @@ etable(ols_contemp, iv_contemp, ols_lag1, iv_lag1, ols_lag2, iv_lag2, ols_lag3, 
        dict = c(share_int_agg = 'Intl. Share'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
+       model.type = FALSE,
        headers = c('Contemp', '', 'Lag 1', '', 'Lag 2', '', 'Lag 3', '', 'Long-term', ''),
        subtitles = c('OLS', 'IV', 'OLS', 'IV', 'OLS', 'IV', 'OLS', 'IV', 'OLS', 'IV'),
        extralines = list('F-stat (1st stage)' =
@@ -612,6 +620,7 @@ etable(az_ols_full, az_iv_full, az_ols_stem, az_iv_stem, az_ols_nstem, az_iv_nst
        dict = c(share_int_agg_z = 'Intl. Share (z)', Z_visa_field_agg_z = 'Visa Instr. (z)'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
+       model.type = FALSE,
        headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
        extralines = list('F-stat (1st stage)' =
                           c(f_az_full, f_az_full, f_az_stem, f_az_stem,
@@ -670,6 +679,7 @@ etable(bz_ols_full, bz_iv_full, bz_ols_stem, bz_iv_stem, bz_ols_nstem, bz_iv_nst
        dict = c(share_int_agg_z = 'Intl. Share (z)', Z_visa_field_agg_z = 'Visa Instr. (z)'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
+       model.type = FALSE,
        headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
        extralines = list('F-stat (1st stage)' =
                           c(f_bz_full, f_bz_full, f_bz_stem, f_bz_stem,
@@ -728,6 +738,7 @@ etable(cz_ols_full, cz_iv_full, cz_ols_stem, cz_iv_stem, cz_ols_nstem, cz_iv_nst
        dict = c(share_int_agg_z = 'Intl. Share (z)', Z_visa_field_agg_z = 'Visa Instr. (z)'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
+       model.type = FALSE,
        headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
        extralines = list('F-stat (1st stage)' =
                           c(f_cz_full, f_cz_full, f_cz_stem, f_cz_stem,
@@ -784,6 +795,7 @@ etable(dz_ols_full, dz_iv_full, dz_ols_stem, dz_iv_stem, dz_ols_nstem, dz_iv_nst
        dict = c(share_int_agg_z = 'Intl. Share (z)', Z_visa_field_agg_z = 'Visa Instr. (z)'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
+       model.type = FALSE,
        headers = c('Full', '', 'STEM', '', 'Non-STEM', ''),
        extralines = list('F-stat (1st stage)' =
                           c(f_dz_full, f_dz_full, f_dz_stem, f_dz_stem,
@@ -843,6 +855,7 @@ etable(hz_ols_interact, hz_iv_young, hz_iv_older,
                 'share_int_agg_z:age_youngTRUE' = 'Intl. Share (z) × Age 20-34'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
+       model.type = FALSE,
        headers = c('OLS (interact)', 'IV: Age 20-34', 'IV: Age 35+'),
        extralines = list('F-stat (1st stage)' = c('', f_young_z, f_older_z)))
 ```
@@ -933,6 +946,7 @@ etable(ols_contemp_z, iv_contemp_z, ols_lag1_z, iv_lag1_z, ols_lag2_z, iv_lag2_z
        dict = c(share_int_agg_z = 'Intl. Share (z)'),
        digits = 3, digits.stats = 3,
        fitstat = c('n', 'r2'),
+       model.type = FALSE,
        headers = c('Contemp', '', 'Lag 1', '', 'Lag 2', '', 'Lag 3', '', 'Long-term', ''),
        subtitles = c('OLS', 'IV', 'OLS', 'IV', 'OLS', 'IV', 'OLS', 'IV', 'OLS', 'IV'),
        extralines = list('F-stat (1st stage)' =
@@ -1229,6 +1243,7 @@ etable(fs_interact,
                 share_bl_z = 'Baseline Share (std.)'),
        digits = 4, digits.stats = 3,
        fitstat = c('n', 'r2'),
+       model.type = FALSE,
        headers = 'First Stage',
        extralines = list('Joint F (Z terms)' = f_joint_text))
 
@@ -1254,6 +1269,7 @@ if (requireNamespace('knitr', quietly = TRUE) && knitr::is_latex_output()) {
                   share_bl_z = 'Baseline Share (std.)'),
          digits = 4, digits.stats = 3,
          fitstat = c('n', 'r2'),
+         model.type = FALSE,
          headers = 'First Stage',
          extralines = list('Joint $F$ (Z terms)' = f_joint_text))
   # LaTeX footnote: bootstrap p-values
