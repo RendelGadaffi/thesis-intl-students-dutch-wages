@@ -1051,12 +1051,12 @@ names(boot_p_all) <- rf_coef_names
 rf_ct <- coeftable(rf_interact)
 
 stars_a <- function(p) {
-  ifelse(p < 0.01, '***', ifelse(p < 0.05, '**', ifelse(p < 0.10, '*', '')))
+  ifelse(p < 0.001, '***', ifelse(p < 0.01, '**', ifelse(p < 0.05, '*', '')))
 }
 
 # Bootstrap significance: + for console, dagger for LaTeX
 stars_b_txt <- function(p) {
-  ifelse(p < 0.01, '+++', ifelse(p < 0.05, '++', ifelse(p < 0.10, '+', '')))
+  ifelse(p < 0.001, '+++', ifelse(p < 0.01, '++', ifelse(p < 0.05, '+', '')))
 }
 stars_b_tex <- function(p) {
   ifelse(p < 0.01, '$^{\\dagger\\dagger\\dagger}$',
