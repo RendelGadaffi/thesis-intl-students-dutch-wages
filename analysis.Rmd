@@ -1232,16 +1232,28 @@ etable(fs_interact,
        headers = 'First Stage',
        extralines = list('Joint F (Z terms)' = f_joint_text))
 
-# Bootstrap significance for first-stage Z coefficients
+# Bootstrap significance for all first-stage coefficients
 cat('\nWild cluster bootstrap significance (Webb six-point, B =', B, '):\n')
-for (v in c('Z_visa_z', 'Z_x_bl')) {
+fs_label <- function(v) {
+  switch(v,
+    Z_visa_z          = 'Z (std.)',
+    Z_x_bl            = 'Z x Baseline Share (std.)',
+    age               = 'Age',
+    age_sq            = 'Age^2',
+    education_years   = 'Education (years)',
+    hours_worked      = 'Hours worked',
+    hours_sq          = 'Hours^2',
+    partnerTRUE       = 'Has partner',
+    geslachtmale      = 'Male',
+    v)
+}
+for (v in fs_coef_names) {
   ap <- coeftable(fs_interact)[v, 'Pr(>|t|)']
   bp <- boot_p_fs[v]
   bp_str <- ifelse(bp < 0.0001, '<0.0001', sprintf('%.4f', bp))
   ap_str <- ifelse(ap < 0.0001, '<0.0001', sprintf('%.4f', ap))
   cat(sprintf('  %s: asymptotic p = %s, bootstrap p = %s (%s)\n',
-              switch(v, Z_visa_z = 'Z (std.)', Z_x_bl = 'Z x Baseline Share'),
-              ap_str, bp_str, stars_b_txt(bp)))
+              fs_label(v), ap_str, bp_str, stars_b_txt(bp)))
 }
 
 # LaTeX version of first stage (only when knitting)
@@ -1256,15 +1268,27 @@ if (requireNamespace('knitr', quietly = TRUE) && knitr::is_latex_output()) {
          fitstat = c('n', 'r2'),
          headers = 'First Stage',
          extralines = list('Joint $F$ (Z terms)' = f_joint_text))
-  # LaTeX footnote: bootstrap p-values
+  # LaTeX footnote: bootstrap p-values for all coefficients
   cat('\\begin{minipage}{\\textwidth}\\small\n')
   cat('\\textit{First-stage wild cluster bootstrap p-values (Webb six-point, ')
   cat(sprintf('$B = %d$): ', B))
-  for (v in c('Z_visa_z', 'Z_x_bl')) {
+  fs_label_tex <- function(v) {
+    switch(v,
+      Z_visa_z          = 'Z (std.)',
+      Z_x_bl            = '$Z \\times$ Baseline Share (std.)',
+      age               = 'Age',
+      age_sq            = 'Age$^2$',
+      education_years   = 'Education (years)',
+      hours_worked      = 'Hours worked',
+      hours_sq          = 'Hours$^2$',
+      partnerTRUE       = 'Has partner',
+      geslachtmale      = 'Male',
+      v)
+  }
+  for (v in fs_coef_names) {
     bp <- boot_p_fs[v]
     bp_str <- ifelse(bp < 0.0001, '$< 0.0001$', sprintf('$%.4f$', bp))
-    label <- switch(v, Z_visa_z = 'Z (std.)', Z_x_bl = '$Z \\times$ Baseline Share')
-    cat(sprintf('%s $p = %s$; ', label, bp_str))
+    cat(sprintf('%s $p = %s$; ', fs_label_tex(v), bp_str))
   }
   cat('}\\\\\n')
   cat('\\end{minipage}\n')
